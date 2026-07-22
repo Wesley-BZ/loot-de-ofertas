@@ -14,3 +14,19 @@ services:
         value: /tmp/loot-de-ofertas-webhooks.db
       - key: MELI_CLIENT_ID
         sync: false
+      - key: MELI_CLIENT_SECRET
+        sync: false
+      - key: MELI_REDIRECT_URI
+        sync: false
+      - key: MELI_CALLBACK_URL
+        sync: false
+      - key: MELI_WEBHOOK_URL
+        sync: false
+      - key: MAGALU_STORE_URL
+        sync: false
+      - key: MAGALU_COUPONS_URL
+        sync: false
+      - key: MAGALU_PARTNER_ID
+        value: "3440"
+      - key: MAGALU_PROMOTER_ID
+        value: "5774816"
