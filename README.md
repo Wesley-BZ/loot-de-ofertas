@@ -107,9 +107,9 @@ salve-a localmente como `SERPAPI_API_KEY` e execute:
 python -m loot_ofertas.cli monitor --limit 10 --google
 ```
 
-O Windows pode executar a captura automaticamente a cada 30 minutos pela tarefa
-`LootDeOfertas-Monitor`. O monitor apenas atualiza, compara e salva; ele não envia
-mensagens.
+O Windows pode executar a captura e a publicação automaticamente a cada 15 minutos pela tarefa
+`LootDeOfertas-Monitor`. Em cada ciclo ele descobre, atualiza, compara, salva e
+publica no máximo uma oferta.
 
 A SerpApi é opcional e pode ser paga. Sem ela, o portfólio multi-loja e o histórico
 continuam funcionando normalmente.
@@ -157,9 +157,10 @@ descobertas automaticamente.
 
 ## Fila e controle de volume
 
-O envio automático publica no máximo uma oferta por execução. Por padrão, a
-fila respeita 20 minutos entre mensagens, funciona das 09:00 às 22:00, limita
-15 mensagens por dia e 3 por categoria. Um produto fica bloqueado por 7 dias,
+O envio automático publica no máximo uma oferta por execução e sempre escolhe o
+maior score disponível. A validação de mercado aumenta o score, mas não bloqueia
+o envio. Por padrão, a fila respeita 15 minutos entre mensagens, funciona das
+09:00 às 22:00 e permite até 60 mensagens por dia e por categoria. Um produto fica bloqueado por 7 dias,
 exceto quando o preço cai pelo menos 10% em relação à última publicação.
 
 Confira o estado sem publicar:
@@ -171,9 +172,9 @@ python -m loot_ofertas.cli queue-status --channel wppconnect
 As regras podem ser alteradas no `.env`:
 
 ```dotenv
-LOOT_MIN_INTERVAL_MINUTES=20
-LOOT_DAILY_LIMIT=15
-LOOT_CATEGORY_DAILY_LIMIT=3
+LOOT_MIN_INTERVAL_MINUTES=15
+LOOT_DAILY_LIMIT=60
+LOOT_CATEGORY_DAILY_LIMIT=60
 LOOT_START_HOUR=9
 LOOT_END_HOUR=22
 LOOT_REPEAT_COOLDOWN_DAYS=7

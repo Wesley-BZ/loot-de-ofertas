@@ -376,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
             rankings = MarketRepository(repo.path).latest_rankings(
                 [offer.id for offer in offers if offer.id is not None]
             )
-            offers = rank_approved_offers(offers, rankings)[:1]
+            offers = rank_offers_for_publication(offers, rankings)[:1]
     if not offers:
         print("Nenhuma oferta atingiu o score mínimo.")
         return 0
@@ -398,12 +398,6 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     for index, offer in enumerate(offers):
         assessment = _record_and_compare(repo, offer, use_google=False)
-        if (
-            not args.force and not args.dry_run
-            and assessment.label not in {"imperdivel", "excelente", "promocao", "promocao_loja"}
-        ):
-            print(f"Oferta {offer.id} não publicada: avaliação atual é {assessment.label}.")
-            continue
         if not offer.coupon and offer.store.casefold() == "magalu":
             coupons_url = os.getenv("MAGALU_COUPONS_URL", "")
             if coupons_url:
@@ -450,22 +444,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-APPROVED_DEAL_LABELS = {"imperdivel", "excelente", "promocao", "promocao_loja"}
-
-
-def rank_approved_offers(
+def rank_offers_for_publication(
     offers: list[Offer], rankings: dict[int, tuple[str, float]]
 ) -> list[Offer]:
-    """Order eligible deals by the complete publication score."""
-    approved = [
-        offer
-        for offer in offers
-        if offer.id in rankings and rankings[offer.id][0] in APPROVED_DEAL_LABELS
-    ]
+    """Order every eligible offer by product score plus its latest deal score."""
     return sorted(
-        approved,
+        offers,
         key=lambda offer: (
-            offer.score + max(0.0, rankings[offer.id][1]),
+            offer.score + max(0.0, rankings.get(offer.id, ("", 0.0))[1]),
             offer.score,
         ),
         reverse=True,

@@ -202,7 +202,7 @@ def dashboard_data() -> dict[str, Any]:
             "interval_minutes": policy.min_interval_minutes,
             "daily_limit": policy.daily_limit,
             "category_limit": policy.category_daily_limit,
-            "monitor_interval_minutes": 30,
+            "monitor_interval_minutes": 15,
             "log_updated": log_updated,
             "scheduler": scheduler,
         },

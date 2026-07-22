@@ -8,9 +8,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 @dataclass(frozen=True, slots=True)
 class PublicationPolicy:
-    min_interval_minutes: int = 20
-    daily_limit: int = 15
-    category_daily_limit: int = 3
+    min_interval_minutes: int = 15
+    daily_limit: int = 60
+    category_daily_limit: int = 60
     start_hour: int = 9
     end_hour: int = 22
     repeat_cooldown_days: int = 7
@@ -20,9 +20,9 @@ class PublicationPolicy:
     @classmethod
     def from_env(cls) -> "PublicationPolicy":
         return cls(
-            min_interval_minutes=int(os.getenv("LOOT_MIN_INTERVAL_MINUTES", "20")),
-            daily_limit=int(os.getenv("LOOT_DAILY_LIMIT", "15")),
-            category_daily_limit=int(os.getenv("LOOT_CATEGORY_DAILY_LIMIT", "3")),
+            min_interval_minutes=int(os.getenv("LOOT_MIN_INTERVAL_MINUTES", "15")),
+            daily_limit=int(os.getenv("LOOT_DAILY_LIMIT", "60")),
+            category_daily_limit=int(os.getenv("LOOT_CATEGORY_DAILY_LIMIT", "60")),
             start_hour=int(os.getenv("LOOT_START_HOUR", "9")),
             end_hour=int(os.getenv("LOOT_END_HOUR", "22")),
             repeat_cooldown_days=int(os.getenv("LOOT_REPEAT_COOLDOWN_DAYS", "7")),
