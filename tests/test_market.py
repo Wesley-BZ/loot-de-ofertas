@@ -30,3 +30,11 @@ def test_magalu_discount_can_rank_before_google_comparison():
     assessment = assess_deal(offer, [], [])
     assert assessment.label == "promocao_loja"
     assert "Magazine Você" in " ".join(assessment.reasons)
+
+
+def test_coupon_reduces_effective_price_in_comparison():
+    offer = Offer("Mouse Gamer Logitech G203", "https://magazinevoce.com/produto", 120, "magalu", coupon="CUPOM20 (R$ 20 OFF)")
+    quote = MarketQuote(offer.title, "Amazon", 110, "https://amazon.example")
+    assessment = assess_deal(offer, [quote], [])
+    assert assessment.current_price == 100
+    assert any("cupom" in reason for reason in assessment.reasons)

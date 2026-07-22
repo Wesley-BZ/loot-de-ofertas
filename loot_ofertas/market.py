@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import Offer
+from .coupons import coupon_discount
 
 
 TRUSTED_STORES = {
@@ -166,7 +167,8 @@ class MarketRepository:
 
 
 def assess_deal(offer: Offer, quotes: list[MarketQuote], history_prices: list[float]) -> DealAssessment:
-    current = round(offer.price + (offer.shipping_price or 0), 2)
+    discount_value = coupon_discount(offer)
+    current = round(max(0, offer.price - discount_value) + (offer.shipping_price or 0), 2)
     competitors = [q for q in quotes if normalize_store(q.store) != normalize_store(offer.store)]
     competitor_prices = [q.effective_price for q in competitors if q.effective_price > 0]
     market_median = statistics.median(competitor_prices) if competitor_prices else None
@@ -183,6 +185,8 @@ def assess_deal(offer: Offer, quotes: list[MarketQuote], history_prices: list[fl
         reasons.append(f"R$ {best-current:.2f} abaixo do concorrente mais barato")
     if claimed >= 10:
         reasons.append(f"desconto anunciado de {claimed:.1f}%")
+    if discount_value > 0:
+        reasons.append(f"cupom reduz R$ {discount_value:.2f} quando as condições forem atendidas")
     if history_savings is not None:
         relation = "abaixo" if history_savings >= 0 else "acima"
         reasons.append(f"{abs(history_savings):.1f}% {relation} da mediana histórica própria")

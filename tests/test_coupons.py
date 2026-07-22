@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from loot_ofertas.coupons import WELCOME_BANNER, WELCOME_BANNER_SHA256, coupon_for_offer, verified_magalu_coupons
+from loot_ofertas.coupons import WELCOME_BANNER, WELCOME_BANNER_SHA256, coupon_discount, coupon_for_offer, verified_magalu_coupons
 from loot_ofertas.models import Offer
 
 
@@ -22,6 +22,10 @@ class CouponTests(unittest.TestCase):
         download.side_effect = [f'<img src="{WELCOME_BANNER}">'.encode(), b"changed"]
         offer = Offer("Mouse gamer", "https://example.com", 88.79, "magalu")
         self.assertIsNone(coupon_for_offer(offer, "https://coupons.example"))
+
+    def test_coupon_discount_uses_explicit_fixed_value(self):
+        offer = Offer("Mouse", "https://example.com", 100, "magalu", coupon="BEMVINDO20 (R$ 20 OFF acima de R$ 80)")
+        self.assertEqual(coupon_discount(offer), 20)
 
 
 if __name__ == "__main__":

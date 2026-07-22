@@ -39,3 +39,17 @@ def coupon_for_offer(offer: Offer, page_url: str) -> str | None:
     except (OSError, TimeoutError):
         return None
     return coupons[0] if coupons else None
+
+
+def coupon_discount(offer: Offer) -> float:
+    """Calcula somente descontos explícitos; condições continuam visíveis na mensagem."""
+    if not offer.coupon:
+        return 0.0
+    fixed = re.search(r"R\$\s*(\d+(?:[.,]\d{1,2})?)\s*OFF", offer.coupon, re.IGNORECASE)
+    if fixed:
+        return min(offer.price, float(fixed.group(1).replace(",", ".")))
+    percent = re.search(r"(\d+(?:[.,]\d+)?)%\s*OFF", offer.coupon, re.IGNORECASE)
+    if percent:
+        value = float(percent.group(1).replace(",", "."))
+        return round(offer.price * min(value, 80) / 100, 2)
+    return 0.0

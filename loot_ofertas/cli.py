@@ -239,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
                         return 2
         offer = captured.offer
         offer.category = category_for(offer)
+        _apply_coupon(offer)
         offer_id = repo.add(offer)
         offer.id = offer_id
         _record_and_compare(repo, offer, use_google=bool(os.getenv("SERPAPI_API_KEY")))
@@ -421,12 +422,21 @@ def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:
         print(f"Atualização da fonte falhou: {exc}. Mantendo a última cotação.")
         return offer
     refreshed.category = category_for(refreshed)
+    _apply_coupon(refreshed)
     previous_id = offer.id
     refreshed.id = repo.add(refreshed)
     if previous_id is not None:
         repo.mark_duplicate(previous_id, refreshed.id)
     print(f"Preço atualizado: R$ {refreshed.price:.2f}")
     return refreshed
+
+
+def _apply_coupon(offer: Offer) -> None:
+    if offer.coupon or offer.store.casefold() != "magalu":
+        return
+    coupons_url = os.getenv("MAGALU_COUPONS_URL", "").strip()
+    if coupons_url:
+        offer.coupon = coupon_for_offer(offer, coupons_url)
 
 
 if __name__ == "__main__":
