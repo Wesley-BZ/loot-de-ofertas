@@ -54,4 +54,7 @@ def test_dashboard_serves_monitoring_data(tmp_path, monkeypatch):
     assert "Loot de Ofertas" in page.text
     assert payload["stats"]["total"] == 1
     assert payload["offers"][0]["title"] == "Mouse Gamer"
-    assert "token" not in str(payload).casefold()
+    assert "scheduler" in payload["bot"]
+    assert len(payload["integrations"]) >= 5
+    assert "recent_errors" in payload
+    assert "WPP_TOKEN" not in str(payload)

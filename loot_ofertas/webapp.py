@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -85,6 +86,39 @@ def _wpp_status() -> dict[str, Any]:
         return {"connected": False, "detail": "servidor indisponível"}
 
 
+def _scheduled_task_status(name: str = "LootDeOfertas-Monitor") -> dict[str, Any]:
+    if os.name != "nt":
+        return {"configured": False, "state": "indisponível neste sistema"}
+    script = (
+        f"$t=Get-ScheduledTask -TaskName '{name}' -ErrorAction Stop;"
+        f"$i=Get-ScheduledTaskInfo -TaskName '{name}' -ErrorAction Stop;"
+        "[pscustomobject]@{configured=$true;state=[string]$t.State;"
+        "last_run=$i.LastRunTime.ToString('o');next_run=$i.NextRunTime.ToString('o');"
+        "last_result=$i.LastTaskResult}|ConvertTo-Json -Compress"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", script],
+            capture_output=True, text=True, timeout=4, check=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return {"configured": False, "state": "não encontrada"}
+
+
+def _integration_status(wpp: dict[str, Any], scheduler: dict[str, Any]) -> list[dict[str, Any]]:
+    token_file = Path(".meli-token.json")
+    return [
+        {"name": "Monitor agendado", "ok": bool(scheduler.get("configured")), "detail": scheduler.get("state")},
+        {"name": "WhatsApp / WPPConnect", "ok": bool(wpp.get("connected")), "detail": wpp.get("detail")},
+        {"name": "Grupo do WhatsApp", "ok": bool(os.getenv("WPP_GROUP_ID", "").strip()), "detail": "configurado" if os.getenv("WPP_GROUP_ID", "").strip() else "ausente"},
+        {"name": "Mercado Livre API", "ok": token_file.exists() and bool(os.getenv("MELI_CLIENT_ID", "").strip()), "detail": "autorizada" if token_file.exists() else "token ausente"},
+        {"name": "Magazine Você", "ok": bool(os.getenv("MAGALU_STORE_URL", "").strip() and os.getenv("MAGALU_PROMOTER_ID", "").strip()), "detail": "loja e divulgador configurados"},
+        {"name": "Google Shopping", "ok": bool(os.getenv("SERPAPI_API_KEY", "").strip()), "detail": "SerpApi configurada" if os.getenv("SERPAPI_API_KEY", "").strip() else "opcional · chave ausente"},
+    ]
+
+
 @app.get("/api/dashboard")
 def dashboard_data() -> dict[str, Any]:
     load_env()
@@ -149,10 +183,15 @@ def dashboard_data() -> dict[str, Any]:
             offer["reasons"] = []
         original = offer.get("original_price")
         offer["discount_percent"] = round((1 - offer["price"] / original) * 100, 1) if original and original > offer["price"] else 0
+    wpp = _wpp_status()
+    scheduler = _scheduled_task_status()
+    recent_errors = sum(
+        1 for line in log_lines if any(term in line.casefold() for term in ("erro", "falhou", "recusada", "indisponível"))
+    )
     return {
         "generated_at": now.isoformat(),
         "bot": {
-            "active": True,
+            "active": bool(scheduler.get("configured")) and str(scheduler.get("state", "")).casefold() in {"ready", "running", "pronto", "executando"},
             "send_allowed": decision.allowed,
             "send_reason": decision.reason,
             "wait_seconds": decision.wait_seconds,
@@ -162,13 +201,16 @@ def dashboard_data() -> dict[str, Any]:
             "category_limit": policy.category_daily_limit,
             "monitor_interval_minutes": 30,
             "log_updated": log_updated,
+            "scheduler": scheduler,
         },
-        "whatsapp": {**_wpp_status(), "group_configured": bool(os.getenv("WPP_GROUP_ID", "").strip())},
+        "whatsapp": {**wpp, "group_configured": bool(os.getenv("WPP_GROUP_ID", "").strip())},
         "stats": {**stats, "price_observations": prices, "webhooks": webhook_count},
         "offers": offers,
         "publications": publications,
         "categories": categories,
         "logs": log_lines,
+        "recent_errors": recent_errors,
+        "integrations": _integration_status(wpp, scheduler),
     }
 
 
