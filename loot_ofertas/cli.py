@@ -17,6 +17,7 @@ from .formatting import format_offer
 from .importers import import_csv
 from .models import Offer
 from .marketing import PHRASES, category_for, headline_for
+from .meli import MeliError, api_get, authorization_url, exchange_callback
 from .scheduling import PublicationPolicy
 from .publishers import (
     telegram_send,
@@ -38,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loot-ofertas")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="Cria o banco local")
+
+    sub.add_parser("meli-auth-url", help="Gera a URL segura de autorização do Mercado Livre")
+    meli_exchange = sub.add_parser("meli-auth-exchange", help="Troca o retorno OAuth por tokens locais")
+    meli_exchange.add_argument("callback", help="URL completa retornada pelo Mercado Livre")
+    sub.add_parser("meli-test", help="Testa a API autenticada do Mercado Livre")
 
     whatsapp_setup = sub.add_parser("whatsapp-setup", help="Conecta e configura o WPPConnect")
     whatsapp_setup.add_argument("--list-groups", action="store_true")
@@ -89,6 +95,29 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "init":
         print("Banco criado com sucesso.")
         return 0
+    if args.command == "meli-auth-url":
+        try:
+            print(authorization_url())
+            return 0
+        except MeliError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if args.command == "meli-auth-exchange":
+        try:
+            token = exchange_callback(args.callback)
+            print(f"Autorização salva. Token válido por {token.get('expires_in', 21600)} segundos.")
+            return 0
+        except MeliError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if args.command == "meli-test":
+        try:
+            user = api_get("users/me")
+            print(f"API conectada: usuário {user.get('nickname') or user.get('id')}.")
+            return 0
+        except MeliError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     if args.command == "whatsapp-setup":
         try:
             client = _wppconnect_client()

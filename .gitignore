@@ -9,3 +9,5 @@ outbox/
 .wppconnect-server/
 .capture-session/
 data/
+.meli-auth.json
+.meli-token.json
