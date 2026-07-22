@@ -30,3 +30,5 @@ services:
         value: "3440"
       - key: MAGALU_PROMOTER_ID
         value: "5774816"
+      - key: MAGALU_BROWSER_HEADLESS
+        value: "true"

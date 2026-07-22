@@ -112,6 +112,19 @@ para a mesma rota dentro da sua loja de afiliado antes de serem salvos.
 python -m loot_ofertas.cli capture "LINK_MAGALU"
 ```
 
+Para percorrer automaticamente as áreas de informática, games, tablets,
+celulares e casa inteligente da loja Magazine Você:
+
+```powershell
+python -m loot_ofertas.cli discover-magalu --limit 50 --min-discount 10
+```
+
+O comando deduplica os produtos, salva o preço no histórico e prepara mensagem
+somente quando o desconto da loja ou a comparação de mercado aprovar a oferta.
+Use `--google` apenas em execuções controladas, pois cada produto comparado consome
+uma consulta da SerpApi. Se a leitura direta receber CAPTCHA, o capturador tenta o
+navegador Python; `MAGALU_BROWSER_HEADLESS=false` permite uma sessão visível local.
+
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução. Por padrão, a

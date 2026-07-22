@@ -20,7 +20,10 @@ from .importers import import_csv
 from .models import Offer
 from .marketing import PHRASES, category_for, headline_for
 from .market import MarketQuote, MarketRepository, assess_deal, google_shopping_quotes
-from .magalu import capture_magalu, capture_magalu_browser
+from .magalu import (
+    capture_magalu, capture_magalu_browser, discover_magalu_browser,
+    discover_magalu_categories, magalu_category_urls,
+)
 from .meli import MeliError, api_get, authorization_url, exchange_callback
 from .scheduling import PublicationPolicy
 from .publishers import (
@@ -56,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
     monitor = sub.add_parser("monitor", help="Atualiza comparações sem publicar")
     monitor.add_argument("--limit", type=int, default=10)
     monitor.add_argument("--google", action="store_true", help="Consulta Google Shopping via SerpApi")
+    discovery = sub.add_parser("discover-magalu", help="Descobre promoções nas categorias da loja Magazine Você")
+    discovery.add_argument("--limit", type=int, default=50)
+    discovery.add_argument("--min-discount", type=float, default=10)
+    discovery.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
+    discovery.add_argument("--browser", action="store_true", help="Usa diretamente o navegador Python")
     market_add = sub.add_parser("market-add", help="Adiciona preço concorrente ao portfólio")
     market_add.add_argument("offer_id", type=int, help="Oferta usada como produto de referência")
     market_add.add_argument("--store", required=True)
@@ -157,6 +165,44 @@ def main(argv: list[str] | None = None) -> int:
             offer = _refresh_offer(repo, offer)
             _record_and_compare(repo, offer, use_google=args.google)
         return 0
+    if args.command == "discover-magalu":
+        urls = magalu_category_urls()
+        result = None
+        if not args.browser:
+            result = discover_magalu_categories(urls, limit=args.limit)
+        if args.browser or not result or not result.offers:
+            if result and result.errors:
+                print("Leitura direta bloqueada; tentando pelo navegador Python.")
+            result = discover_magalu_browser(
+                urls, session_dir=os.getenv("MAGALU_SESSION_DIR", ".magalu-session"),
+                limit=args.limit,
+            )
+        saved = 0
+        approved_count = 0
+        rejected = 0
+        for offer in result.offers:
+            offer.category = category_for(offer)
+            _apply_coupon(offer)
+            offer.id = repo.add(offer)
+            assessment = _record_and_compare(repo, offer, use_google=args.google)
+            approved = assessment.label in {"imperdivel", "excelente", "promocao", "promocao_loja"}
+            if offer.discount_percent < args.min_discount and not approved:
+                rejected += 1
+                saved += 1
+                continue
+            if approved:
+                offer.headline = headline_for(offer, repo.recent_headlines(offer.category, 10))
+                save_message(format_offer(offer), offer.id)
+                approved_count += 1
+            saved += 1
+        print(
+            f"Descoberta concluída: {len(result.offers)} produto(s) lido(s), "
+            f"{saved} candidato(s) salvo(s), {approved_count} promoção(ões) aprovada(s), "
+            f"{rejected} aguardando desconto ou comparação."
+        )
+        if result.errors:
+            print(f"Categorias com falha: {len(result.errors)}.")
+        return 0 if result.offers else 2
     if args.command == "market-add":
         offer = repo.get(args.offer_id)
         if not offer:

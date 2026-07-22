@@ -6,7 +6,9 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .capture import (
     MAX_PAGE_BYTES,
@@ -23,6 +25,184 @@ from .models import Offer
 
 
 MAGALU_HOSTS = ("magazineluiza.com.br", "magazinevoce.com.br")
+MAGALU_CATEGORY_PATHS = (
+    ("informatica", "in"),
+    ("games", "ga"),
+    ("tablets-ipads-e-e-reader", "tb"),
+    ("celulares-e-smartphones", "te"),
+    ("casa-inteligente", "ci"),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class MagaluDiscovery:
+    offers: list[Offer]
+    errors: list[str]
+
+
+def magalu_category_urls(store_url: str | None = None) -> tuple[str, ...]:
+    base = (store_url or os.getenv("MAGALU_STORE_URL", "")).strip().rstrip("/")
+    if not base:
+        raise CaptureError("Configure MAGALU_STORE_URL antes da descoberta")
+    _validate_url(base + "/")
+    return tuple(f"{base}/{slug}/l/{code}/" for slug, code in MAGALU_CATEGORY_PATHS)
+
+
+def discover_magalu_categories(
+    urls: tuple[str, ...] | None = None, timeout: int = 25, limit: int = 100
+) -> MagaluDiscovery:
+    found: dict[str, Offer] = {}
+    errors: list[str] = []
+    for url in urls or magalu_category_urls():
+        request = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml", "Accept-Language": "pt-BR,pt;q=0.9",
+        })
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                html = response.read(MAX_PAGE_BYTES + 1)
+                if len(html) > MAX_PAGE_BYTES:
+                    raise CaptureError("A categoria do Magalu excedeu 5 MB")
+                charset = response.headers.get_content_charset() or "utf-8"
+                rows = discover_magalu_html(html.decode(charset, errors="replace"), response.geturl())
+            for offer in rows:
+                found[offer.product_key or offer.affiliate_url] = offer
+                if len(found) >= limit:
+                    return MagaluDiscovery(list(found.values()), errors)
+        except (CaptureError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as error:
+            errors.append(f"{url}: {error}")
+    return MagaluDiscovery(list(found.values()), errors)
+
+
+def discover_magalu_browser(
+    urls: tuple[str, ...] | None = None, timeout: int = 35,
+    session_dir: str | Path = ".magalu-session", limit: int = 100,
+) -> MagaluDiscovery:
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.support.ui import WebDriverWait
+    except ImportError as error:
+        raise CaptureError("O navegador do Magalu requer Selenium") from error
+    options = webdriver.ChromeOptions()
+    if os.getenv("MAGALU_BROWSER_HEADLESS", "true").casefold() not in {"0", "false", "no"}:
+        options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1365,1200")
+    options.add_argument(f"--user-data-dir={Path(session_dir).resolve()}")
+    driver = webdriver.Chrome(options=options)
+    found: dict[str, Offer] = {}
+    errors: list[str] = []
+    try:
+        for url in urls or magalu_category_urls():
+            try:
+                driver.get(url)
+                WebDriverWait(driver, timeout).until(lambda browser: browser.execute_script(
+                    "return document.querySelectorAll('a[href*=\"/p/\"]').length > 0"
+                ))
+                rows = driver.execute_script("""
+                    return Array.from(document.querySelectorAll('a[href*="/p/"]')).map(a => {
+                      const card = a.closest('li, article, [data-testid*="product"], section, div');
+                      return {href: a.href, text: (card?.innerText || a.innerText || '').trim(),
+                              title: (a.getAttribute('title') || a.querySelector('img')?.alt ||
+                                      card?.querySelector('h2, h3')?.innerText || a.innerText || '').trim(),
+                              image: a.querySelector('img')?.src || card?.querySelector('img')?.src || ''};
+                    }).filter(x => x.href && x.text);
+                """)
+                for row in rows or []:
+                    offer = _offer_from_listing_row(row, driver.current_url)
+                    if offer:
+                        found[offer.product_key or offer.affiliate_url] = offer
+                        if len(found) >= limit:
+                            return MagaluDiscovery(list(found.values()), errors)
+            except Exception as error:
+                errors.append(f"{url}: {error}")
+    finally:
+        driver.quit()
+    return MagaluDiscovery(list(found.values()), errors)
+
+
+def discover_magalu_html(html: str, final_url: str) -> list[Offer]:
+    _validate_url(final_url)
+    if "Captcha Magalu" in html or "az-request-captcha" in html:
+        raise CaptureError("O Magalu solicitou validação CAPTCHA")
+    parser = _ProductMetadataParser()
+    parser.feed(html)
+    products = _all_products(parser.json_ld)
+    offers: dict[str, Offer] = {}
+    for product in products:
+        title = _first_text(product.get("name"))
+        data = product.get("offers")
+        if isinstance(data, list):
+            data = next((item for item in data if isinstance(item, dict)), {})
+        data = data if isinstance(data, dict) else {}
+        price = _first_price(data.get("price"), data.get("lowPrice"))
+        url = _first_text(product.get("url"), data.get("url"))
+        if not title or not url or not price:
+            continue
+        url = urllib.parse.urljoin(final_url, url)
+        try:
+            _validate_url(url)
+        except CaptureError:
+            continue
+        product_id = _product_id(url, product)
+        original = _first_price(data.get("highPrice"), product.get("originalPrice"))
+        offer = Offer(
+            title=title, affiliate_url=magalu_affiliate_url(url), source_url=url,
+            product_key=f"magalu:{product_id}" if product_id else None,
+            price=price, original_price=original if original and original > price else None,
+            store="magalu", image_url=_image_url(product.get("image")), available=True,
+        )
+        offers[offer.product_key or offer.affiliate_url] = offer
+    return list(offers.values())
+
+
+def _all_products(documents: list[Any]) -> list[dict[str, Any]]:
+    queue: list[Any] = list(documents)
+    products: list[dict[str, Any]] = []
+    while queue:
+        item = queue.pop(0)
+        if isinstance(item, list):
+            queue.extend(item)
+        elif isinstance(item, dict):
+            if isinstance(item.get("@graph"), list):
+                queue.extend(item["@graph"])
+            if isinstance(item.get("itemListElement"), list):
+                queue.extend(item["itemListElement"])
+            if isinstance(item.get("item"), dict):
+                queue.append(item["item"])
+            kinds = item.get("@type")
+            kinds = kinds if isinstance(kinds, list) else [kinds]
+            if any(str(kind).casefold() == "product" for kind in kinds):
+                products.append(item)
+    return products
+
+
+def _offer_from_listing_row(row: dict[str, Any], category_url: str) -> Offer | None:
+    url = str(row.get("href") or "").strip()
+    text = str(row.get("text") or "").strip()
+    title = str(row.get("title") or "").strip().splitlines()[0] if row.get("title") else ""
+    if not url or not text:
+        return None
+    prices = [_first_price(value) for value in re.findall(r"R\$\s*[\d.]+(?:,\d{2})?", text)]
+    prices = [price for price in prices if price and price > 0]
+    if not prices:
+        return None
+    if not title or len(title) < 5:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        title = next((line for line in lines if "R$" not in line and len(line) >= 8), "")
+    if not title:
+        return None
+    has_discount = bool(re.search(r"\b(?:OFF|desconto)\b", text, re.IGNORECASE))
+    original = prices[0] if has_discount and len(prices) >= 2 else 0
+    current = prices[1] if has_discount and len(prices) >= 2 else prices[0]
+    product_id = _product_id(url, {})
+    return Offer(
+        title=title, affiliate_url=magalu_affiliate_url(url), source_url=url,
+        product_key=f"magalu:{product_id}" if product_id else None,
+        price=current, original_price=original if original > current else None,
+        store="magalu", image_url=str(row.get("image") or "") or None, available=True,
+        category=category_url,
+    )
 
 
 def capture_magalu(url: str, timeout: int = 25) -> CapturedPage:
