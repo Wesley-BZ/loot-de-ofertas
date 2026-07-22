@@ -116,6 +116,21 @@ def capture_magalu_html(html: str, final_url: str) -> CapturedPage:
 def magalu_affiliate_url(url: str) -> str:
     store_url = os.getenv("MAGALU_STORE_URL", "").strip()
     parsed = urllib.parse.urlsplit(url)
+    promoter_id = os.getenv("MAGALU_PROMOTER_ID", "").strip()
+    partner_id = os.getenv("MAGALU_PARTNER_ID", "3440").strip()
+    if promoter_id and "magazineluiza.com.br" in (parsed.hostname or ""):
+        query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        query.update({
+            "partner_id": [partner_id],
+            "promoter_id": [promoter_id],
+            "utm_source": ["divulgador"],
+            "utm_medium": ["magalu"],
+            "utm_campaign": [promoter_id],
+        })
+        return urllib.parse.urlunsplit((
+            parsed.scheme, parsed.netloc, parsed.path,
+            urllib.parse.urlencode(query, doseq=True), parsed.fragment,
+        ))
     if "magazinevoce.com.br" in (parsed.hostname or ""):
         return url
     if not store_url or "sualoja" in store_url.casefold():
