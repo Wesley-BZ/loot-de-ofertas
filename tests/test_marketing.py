@@ -1,6 +1,6 @@
 import unittest
 
-from loot_ofertas.formatting import format_offer
+from loot_ofertas.formatting import compact_offer_url, format_offer
 from loot_ofertas.marketing import PHRASES, category_for, headline_for
 from loot_ofertas.product_catalog import PRODUCT_PROFILES
 from loot_ofertas.models import Offer
@@ -51,6 +51,33 @@ class MarketingTests(unittest.TestCase):
         self.assertIn("Use o Cupom: *BEMVINDO20*", message)
         self.assertIn("Loja: Magalu", message)
         self.assertNotIn("OFERTA GAMER", message)
+
+    def test_mercado_livre_message_uses_compact_item_link(self):
+        offer = Offer(
+            "Monitor Gamer",
+            "https://www.mercadolivre.com.br/monitor-gamer-aoc/p/MLB500200257?pdp_filters=item_id%3AMLB4526861389&wid=MLB4526861389",
+            429,
+            "mercadolivre",
+            product_key="mercadolivre:mlb4526861389",
+        )
+
+        self.assertEqual(
+            "https://produto.mercadolivre.com.br/MLB-4526861389-_JM",
+            compact_offer_url(offer),
+        )
+        self.assertNotIn("pdp_filters", format_offer(offer))
+
+    def test_magalu_link_keeps_affiliate_ids_and_removes_tracking_noise(self):
+        offer = Offer(
+            "Mouse Gamer",
+            "https://www.magazineluiza.com.br/mouse/p/123/?partner_id=3440&promoter_id=5774816&utm_source=divulgador",
+            99,
+            "magalu",
+        )
+
+        link = compact_offer_url(offer)
+        self.assertIn("promoter_id=5774816", link)
+        self.assertNotIn("utm_source", link)
 
 
 if __name__ == "__main__":
