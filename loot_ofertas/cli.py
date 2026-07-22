@@ -370,7 +370,13 @@ def main(argv: list[str] | None = None) -> int:
         selected = repo.get(args.offer_id)
         offers = [selected] if selected and (args.force or selected.status == "ready") else []
     else:
-        offers = repo.eligible_ready(args.channel, policy, requested_limit, args.min_score)
+        candidate_limit = 100 if sends_immediately and not args.dry_run else requested_limit
+        offers = repo.eligible_ready(args.channel, policy, candidate_limit, args.min_score)
+        if sends_immediately and not args.dry_run:
+            rankings = MarketRepository(repo.path).latest_rankings(
+                [offer.id for offer in offers if offer.id is not None]
+            )
+            offers = rank_approved_offers(offers, rankings)[:1]
     if not offers:
         print("Nenhuma oferta atingiu o score mínimo.")
         return 0
@@ -442,6 +448,28 @@ def main(argv: list[str] | None = None) -> int:
     if whatsapp_driver is not None and not keep_open:
         whatsapp_driver.quit()
     return 0
+
+
+APPROVED_DEAL_LABELS = {"imperdivel", "excelente", "promocao", "promocao_loja"}
+
+
+def rank_approved_offers(
+    offers: list[Offer], rankings: dict[int, tuple[str, float]]
+) -> list[Offer]:
+    """Order eligible deals by the complete publication score."""
+    approved = [
+        offer
+        for offer in offers
+        if offer.id in rankings and rankings[offer.id][0] in APPROVED_DEAL_LABELS
+    ]
+    return sorted(
+        approved,
+        key=lambda offer: (
+            offer.score + max(0.0, rankings[offer.id][1]),
+            offer.score,
+        ),
+        reverse=True,
+    )
 
 
 def _wppconnect_client() -> WppConnectClient:

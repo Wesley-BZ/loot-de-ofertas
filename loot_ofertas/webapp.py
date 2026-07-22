@@ -139,7 +139,7 @@ def dashboard_data() -> dict[str, Any]:
         offers = _rows(connection, """
             SELECT o.id, o.title, o.price, o.original_price, o.store, o.coupon, o.category,
                    o.score, o.status, o.available, o.affiliate_url, o.image_url, o.last_seen_at,
-                   a.label assessment, a.confidence, a.competitor_count, a.market_median,
+                   a.label assessment, a.score assessment_score, a.confidence, a.competitor_count, a.market_median,
                    a.market_savings_percent, a.reasons
             FROM offers o
             LEFT JOIN deal_assessments a ON a.id=(
@@ -183,6 +183,9 @@ def dashboard_data() -> dict[str, Any]:
             offer["reasons"] = []
         original = offer.get("original_price")
         offer["discount_percent"] = round((1 - offer["price"] / original) * 100, 1) if original and original > offer["price"] else 0
+        offer["publication_score"] = round(
+            float(offer.get("score") or 0) + max(0.0, float(offer.get("assessment_score") or 0)), 2
+        )
     wpp = _wpp_status()
     scheduler = _scheduled_task_status()
     recent_errors = sum(

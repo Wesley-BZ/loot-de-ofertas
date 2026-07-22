@@ -165,6 +165,21 @@ class MarketRepository:
                  json.dumps(assessment.reasons, ensure_ascii=False)),
             )
 
+    def latest_rankings(self, offer_ids: list[int]) -> dict[int, tuple[str, float]]:
+        if not offer_ids:
+            return {}
+        self.initialize()
+        placeholders = ",".join("?" for _ in offer_ids)
+        with sqlite3.connect(self.database) as connection:
+            rows = connection.execute(
+                f"""SELECT d.offer_id, d.label, d.score
+                    FROM deal_assessments d
+                    WHERE d.offer_id IN ({placeholders})
+                      AND d.id=(SELECT MAX(x.id) FROM deal_assessments x WHERE x.offer_id=d.offer_id)""",
+                offer_ids,
+            ).fetchall()
+        return {int(row[0]): (str(row[1]), float(row[2])) for row in rows}
+
 
 def assess_deal(offer: Offer, quotes: list[MarketQuote], history_prices: list[float]) -> DealAssessment:
     discount_value = coupon_discount(offer)

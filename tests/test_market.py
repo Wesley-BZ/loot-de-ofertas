@@ -1,4 +1,4 @@
-from loot_ofertas.market import MarketQuote, assess_deal, same_product
+from loot_ofertas.market import DealAssessment, MarketQuote, MarketRepository, assess_deal, same_product
 from loot_ofertas.models import Offer
 
 
@@ -42,3 +42,16 @@ def test_coupon_reduces_effective_price_in_comparison():
     assessment = assess_deal(offer, [quote], [])
     assert assessment.current_price == 100
     assert any("cupom" in reason for reason in assessment.reasons)
+
+
+def test_latest_rankings_returns_only_latest_assessment(tmp_path):
+    repository = MarketRepository(tmp_path / "loot.db")
+    common = dict(
+        current_price=80, market_median=100, best_competitor_price=90,
+        market_savings_percent=20, competitor_count=2, history_median=None,
+        history_savings_percent=None, reasons=[],
+    )
+    repository.save_assessment(7, DealAssessment(label="promocao", score=20, confidence="media", **common))
+    repository.save_assessment(7, DealAssessment(label="imperdivel", score=45, confidence="alta", **common))
+
+    assert repository.latest_rankings([7]) == {7: ("imperdivel", 45.0)}
