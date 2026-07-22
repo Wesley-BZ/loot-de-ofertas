@@ -48,8 +48,8 @@ def test_builds_expected_magazine_voce_categories(monkeypatch):
     monkeypatch.setenv("MAGALU_STORE_URL", "https://www.magazinevoce.com.br/minhaloja/")
     urls = magalu_category_urls()
     assert len(urls) == 5
-    assert urls[0].endswith("/informatica/l/in/")
-    assert urls[-1].endswith("/casa-inteligente/l/ci/")
+    assert "/informatica/l/in/?page=1&sortOrientation=desc&sortType=score" in urls[0]
+    assert "/casa-inteligente/l/ci/?page=1&sortOrientation=desc&sortType=score" in urls[-1]
 
 
 def test_discovers_products_from_category_json_ld(monkeypatch):

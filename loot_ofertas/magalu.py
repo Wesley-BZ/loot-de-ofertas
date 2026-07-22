@@ -56,7 +56,10 @@ def magalu_category_urls(store_url: str | None = None) -> tuple[str, ...]:
     if not base:
         raise CaptureError("Configure MAGALU_STORE_URL antes da descoberta")
     _validate_url(base + "/")
-    return tuple(f"{base}/{slug}/l/{code}/" for slug, code in MAGALU_CATEGORY_PATHS)
+    return tuple(
+        f"{base}/{slug}/l/{code}/?page=1&sortOrientation=desc&sortType=score"
+        for slug, code in MAGALU_CATEGORY_PATHS
+    )
 
 
 def relevant_magalu_offer(offer: Offer) -> bool:
