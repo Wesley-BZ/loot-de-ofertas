@@ -42,7 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("meli-auth-url", help="Gera a URL segura de autorização do Mercado Livre")
     meli_exchange = sub.add_parser("meli-auth-exchange", help="Troca o retorno OAuth por tokens locais")
-    meli_exchange.add_argument("callback", help="URL completa retornada pelo Mercado Livre")
+    meli_exchange.add_argument(
+        "callback", nargs="?", help="URL completa retornada; por padrão lê MELI_CALLBACK_URL do .env"
+    )
     sub.add_parser("meli-test", help="Testa a API autenticada do Mercado Livre")
 
     whatsapp_setup = sub.add_parser("whatsapp-setup", help="Conecta e configura o WPPConnect")
@@ -104,7 +106,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     if args.command == "meli-auth-exchange":
         try:
-            token = exchange_callback(args.callback)
+            callback = args.callback or os.getenv("MELI_CALLBACK_URL", "").strip()
+            if not callback:
+                raise MeliError("Cole a URL retornada em MELI_CALLBACK_URL no arquivo .env.")
+            token = exchange_callback(callback)
             print(f"Autorização salva. Token válido por {token.get('expires_in', 21600)} segundos.")
             return 0
         except MeliError as exc:

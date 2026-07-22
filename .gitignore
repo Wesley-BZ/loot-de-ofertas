@@ -11,4 +11,3 @@ outbox/
 data/
 .meli-auth.json
 .meli-token.json
-.meli-callback.txt
