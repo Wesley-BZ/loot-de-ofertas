@@ -8,3 +8,4 @@ outbox/
 .whatsapp-session/
 .wppconnect-server/
 .capture-session/
+data/

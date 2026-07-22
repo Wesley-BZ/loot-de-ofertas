@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: loot-de-ofertas-wesley-bz
+    runtime: python
+    plan: free
+    buildCommand: pip install .
+    startCommand: uvicorn loot_ofertas.webapp:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: WEBHOOK_DATABASE
+        value: /tmp/loot-de-ofertas-webhooks.db
+      - key: MELI_CLIENT_ID
+        sync: false
