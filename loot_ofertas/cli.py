@@ -503,6 +503,11 @@ def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:
     try:
         if "mercadolivre.com" in host:
             refreshed = capture_mercado_livre_api(url).offer
+            if not refreshed.coupon:
+                try:
+                    refreshed.coupon = capture_mercado_livre(url).offer.coupon
+                except CaptureError:
+                    pass
         elif "magazineluiza.com.br" in host or "magazinevoce.com.br" in host:
             try:
                 refreshed = capture_magalu(url).offer

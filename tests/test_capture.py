@@ -5,7 +5,9 @@ from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 
-from loot_ofertas.capture import CaptureError, capture_mercado_livre, save_message
+from loot_ofertas.capture import (
+    CaptureError, _coupon_from_api, capture_mercado_livre, save_message,
+)
 from loot_ofertas.database import OfferRepository
 
 
@@ -74,6 +76,19 @@ class CaptureTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(CaptureError, "preço válido"):
             capture_mercado_livre("https://mercadolivre.com.br/MLB-123456")
+
+    @patch("urllib.request.urlopen")
+    def test_extracts_public_coupon_from_page(self, urlopen):
+        urlopen.return_value = FakeResponse(product_html() + '<script>window.offer={"coupon_code":"GAMER20"}</script>')
+
+        captured = capture_mercado_livre("https://produto.mercadolivre.com.br/MLB-123456")
+
+        self.assertEqual("GAMER20", captured.offer.coupon)
+
+    def test_extracts_coupon_when_api_includes_campaign_code(self):
+        payload = {"promotions": [{"type": "SELLER_COUPON_CAMPAIGN", "code": "CADEIRA15"}]}
+
+        self.assertEqual("CADEIRA15", _coupon_from_api(payload))
 
     @patch("urllib.request.urlopen")
     def test_capture_updates_database_and_saves_message(self, urlopen):

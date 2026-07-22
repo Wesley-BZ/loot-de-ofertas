@@ -73,6 +73,7 @@ def capture_mercado_livre_api(url: str) -> CapturedPage:
     transactions = reputation.get("transactions") or {}
     shipping = listing.get("shipping") or {}
     item_id = str(listing.get("item_id") or requested_item).upper()
+    coupon = _coupon_from_api(listing)
     offer = Offer(
         title=title,
         affiliate_url=url,
@@ -80,6 +81,7 @@ def capture_mercado_livre_api(url: str) -> CapturedPage:
         product_key=f"mercadolivre:{item_id.casefold()}",
         price=price,
         original_price=original_price if original_price and original_price > price else None,
+        coupon=coupon,
         store="mercadolivre",
         image_url=str(image_url) if image_url else None,
         category=str(category.get("name") or ""),
@@ -239,6 +241,7 @@ def capture_mercado_livre_html(html: str, final_url: str) -> CapturedPage:
         product_key=key,
         price=price,
         original_price=original_price,
+        coupon=_coupon_from_html(html),
         store="mercadolivre",
         image_url=image,
         seller_name=_text_or_none(seller_name),
@@ -319,3 +322,47 @@ def _image_url(value: Any) -> str | None:
 def _text_or_none(value: Any) -> str | None:
     text = str(value).strip() if value is not None else ""
     return text or None
+
+
+def _coupon_from_api(value: Any) -> str | None:
+    """Extract a public coupon code when Mercado Livre includes it in API data."""
+    queue = [value]
+    while queue:
+        current = queue.pop(0)
+        if isinstance(current, list):
+            queue.extend(current)
+            continue
+        if not isinstance(current, dict):
+            continue
+        queue.extend(item for item in current.values() if isinstance(item, (dict, list)))
+        coupon_value = current.get("coupon_code") or current.get("couponCode")
+        if coupon_value is None and "coupon" in str(current.get("type", "")).casefold():
+            coupon_value = current.get("code")
+        code = _public_coupon_code(coupon_value)
+        if code:
+            return code
+    return None
+
+
+def _coupon_from_html(html: str) -> str | None:
+    patterns = (
+        r'["\']coupon_code["\']\s*:\s*["\']([A-Za-z0-9_-]{4,24})',
+        r'["\']couponCode["\']\s*:\s*["\']([A-Za-z0-9_-]{4,24})',
+        r'(?i)cupom(?:\s+de\s+desconto)?\s*[:\-]\s*<[^>]+>*\s*([A-Z0-9_-]{4,24})',
+        r'(?i)cupom(?:\s+de\s+desconto)?\s*[:\-]\s*([A-Z0-9_-]{4,24})',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html)
+        code = _public_coupon_code(match.group(1) if match else None)
+        if code:
+            return code
+    return None
+
+
+def _public_coupon_code(value: Any) -> str | None:
+    code = str(value or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9_-]{4,24}", code):
+        return None
+    if code in {"CUPOM", "DESCONTO", "PROMOCAO", "PROMOÇÃO"}:
+        return None
+    return code
