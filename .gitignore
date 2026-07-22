@@ -10,6 +10,7 @@ logs/
 .wppconnect-server/
 .capture-session/
 .magalu-session/
+.meli-discovery-session/
 data/
 .meli-auth.json
 .meli-token.json

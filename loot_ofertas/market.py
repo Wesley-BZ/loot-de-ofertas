@@ -270,9 +270,11 @@ def same_product(left: str, right: str) -> bool:
     right_tokens = _tokens(right)
     if not left_tokens or not right_tokens:
         return False
-    left_models = {token for token in left_tokens if any(char.isdigit() for char in token) and len(token) >= 3}
-    right_models = {token for token in right_tokens if any(char.isdigit() for char in token) and len(token) >= 3}
+    left_models = _model_tokens(left_tokens)
+    right_models = _model_tokens(right_tokens)
     if left_models and right_models and not (left_models & right_models):
+        return False
+    if bool(left_models) != bool(right_models):
         return False
     overlap = len(left_tokens & right_tokens) / max(1, len(left_tokens | right_tokens))
     return overlap >= 0.34 or bool(left_models & right_models) and overlap >= 0.22
@@ -291,6 +293,23 @@ def _normalize(value: str) -> str:
 
 def _tokens(value: str) -> set[str]:
     return {token for token in _normalize(value).split() if len(token) >= 2 and token not in STOPWORDS}
+
+
+def _model_tokens(tokens: set[str]) -> set[str]:
+    ignored = re.compile(
+        r"^(?:\d+)(?:gb|tb|mb|hz|khz|mhz|ghz|w|mah|mp|polegadas?|inch|cm|mm)$|^windows\d+$"
+    )
+    models: set[str] = set()
+    for token in tokens:
+        if ignored.fullmatch(token):
+            continue
+        has_digit = any(char.isdigit() for char in token)
+        has_letter = any(char.isalpha() for char in token)
+        if has_digit and has_letter and len(token) >= 4:
+            models.add(token)
+        elif token.isdigit() and len(token) >= 4 and not token.startswith(("1080", "1440", "2160")):
+            models.add(token)
+    return models
 
 
 def _shipping_from_text(value: str) -> float | None:

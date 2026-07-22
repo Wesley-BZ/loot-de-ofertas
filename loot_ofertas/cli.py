@@ -25,6 +25,7 @@ from .magalu import (
     discover_magalu_categories, magalu_category_urls, relevant_magalu_offer,
 )
 from .meli import MeliError, api_get, authorization_url, exchange_callback
+from .meli_discovery import discover_meli_highlights
 from .scheduling import PublicationPolicy
 from .publishers import (
     telegram_send,
@@ -65,6 +66,10 @@ def build_parser() -> argparse.ArgumentParser:
     discovery.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
     discovery.add_argument("--browser", action="store_true", help="Usa diretamente o navegador Python")
     discovery.add_argument("--include-all", action="store_true", help="Não aplica o filtro gamer/tech")
+    meli_discovery = sub.add_parser("discover-meli", help="Descobre mais vendidos gamers no Mercado Livre")
+    meli_discovery.add_argument("--limit", type=int, default=30)
+    meli_discovery.add_argument("--min-discount", type=float, default=10)
+    meli_discovery.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
     market_add = sub.add_parser("market-add", help="Adiciona preço concorrente ao portfólio")
     market_add.add_argument("offer_id", type=int, help="Oferta usada como produto de referência")
     market_add.add_argument("--store", required=True)
@@ -207,6 +212,31 @@ def main(argv: list[str] | None = None) -> int:
         )
         if result.errors:
             print(f"Categorias com falha: {len(result.errors)}.")
+        return 0 if result.offers else 2
+    if args.command == "discover-meli":
+        result = discover_meli_highlights(limit=args.limit)
+        saved = 0
+        approved_count = 0
+        waiting = 0
+        for offer in result.offers:
+            offer.category = category_for(offer)
+            offer.id = repo.add(offer)
+            assessment = _record_and_compare(repo, offer, use_google=args.google)
+            approved = assessment.label in {"imperdivel", "excelente", "promocao"}
+            if approved:
+                offer.headline = headline_for(offer, repo.recent_headlines(offer.category, 10))
+                save_message(format_offer(offer), offer.id)
+                approved_count += 1
+            elif offer.discount_percent < args.min_discount:
+                waiting += 1
+            saved += 1
+        print(
+            f"Mercado Livre: {len(result.offers)} mais vendido(s) lido(s), "
+            f"{saved} candidato(s) salvo(s), {approved_count} promoção(ões) aprovada(s), "
+            f"{waiting} aguardando desconto ou comparação."
+        )
+        if result.errors:
+            print(f"Consultas com falha: {len(result.errors)}.")
         return 0 if result.offers else 2
     if args.command == "market-add":
         offer = repo.get(args.offer_id)

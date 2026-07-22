@@ -23,6 +23,10 @@ def test_history_does_not_veto_good_current_market_price():
 def test_product_matching_rejects_different_models():
     assert same_product("Monitor LG 24GN60R 24", "Monitor Gamer LG 24GN60R")
     assert not same_product("Monitor LG 24GN60R", "Monitor LG 27GN800")
+    assert not same_product(
+        "Computador Intel Core i5 3470 16GB SSD 120GB Windows 10",
+        "Computador Intel Core i5 8GB SSD 120GB Windows 10",
+    )
 
 
 def test_magalu_discount_can_rank_before_google_comparison():

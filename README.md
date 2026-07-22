@@ -141,6 +141,20 @@ Use `--google` apenas em execuções controladas, pois cada produto comparado co
 uma consulta da SerpApi. Se a leitura direta receber CAPTCHA, o capturador tenta o
 navegador Python; `MAGALU_BROWSER_HEADLESS=false` permite uma sessão visível local.
 
+## Descoberta Mercado Livre
+
+O buscador usa o endpoint oficial de mais vendidos do Mercado Livre para descobrir
+produtos novos em monitores, notebooks, computadores, componentes, armazenamento,
+redes, tablets, celulares, consoles e acessórios gamers:
+
+```powershell
+python -m loot_ofertas.cli discover-meli --limit 30 --min-discount 10
+```
+
+Os itens são lidos pela API oficial, deduplicados e enviados ao mesmo histórico,
+comparador e filtro de publicação da Magalu. O monitor do Windows executa as duas
+descobertas automaticamente.
+
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução. Por padrão, a
