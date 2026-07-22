@@ -22,7 +22,7 @@ from .marketing import PHRASES, category_for, headline_for
 from .market import MarketQuote, MarketRepository, assess_deal, google_shopping_quotes
 from .magalu import (
     capture_magalu, capture_magalu_browser, discover_magalu_browser,
-    discover_magalu_categories, magalu_category_urls,
+    discover_magalu_categories, magalu_category_urls, relevant_magalu_offer,
 )
 from .meli import MeliError, api_get, authorization_url, exchange_callback
 from .scheduling import PublicationPolicy
@@ -64,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     discovery.add_argument("--min-discount", type=float, default=10)
     discovery.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
     discovery.add_argument("--browser", action="store_true", help="Usa diretamente o navegador Python")
+    discovery.add_argument("--include-all", action="store_true", help="Não aplica o filtro gamer/tech")
     market_add = sub.add_parser("market-add", help="Adiciona preço concorrente ao portfólio")
     market_add.add_argument("offer_id", type=int, help="Oferta usada como produto de referência")
     market_add.add_argument("--store", required=True)
@@ -180,7 +181,11 @@ def main(argv: list[str] | None = None) -> int:
         saved = 0
         approved_count = 0
         rejected = 0
+        irrelevant = 0
         for offer in result.offers:
+            if not args.include_all and not relevant_magalu_offer(offer):
+                irrelevant += 1
+                continue
             offer.category = category_for(offer)
             _apply_coupon(offer)
             offer.id = repo.add(offer)
@@ -198,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Descoberta concluída: {len(result.offers)} produto(s) lido(s), "
             f"{saved} candidato(s) salvo(s), {approved_count} promoção(ões) aprovada(s), "
-            f"{rejected} aguardando desconto ou comparação."
+            f"{rejected} aguardando desconto ou comparação e {irrelevant} fora do perfil."
         )
         if result.errors:
             print(f"Categorias com falha: {len(result.errors)}.")

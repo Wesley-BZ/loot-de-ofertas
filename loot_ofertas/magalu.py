@@ -32,6 +32,17 @@ MAGALU_CATEGORY_PATHS = (
     ("celulares-e-smartphones", "te"),
     ("casa-inteligente", "ci"),
 )
+INFORMATICA_ALLOWED_TERMS = {
+    "adaptador", "cadeira gamer", "cabo hdmi", "cooler", "computador", "controle",
+    "dock", "fonte", "gabinete", "gamepad", "gpu", "hd externo", "headset", "hub usb",
+    "memoria", "microfone", "monitor", "mouse", "notebook", "nvme", "pc gamer",
+    "placa de video", "placa mae", "processador", "repetidor", "roteador", "ssd",
+    "switch", "teclado", "webcam", "wifi",
+}
+INFORMATICA_BLOCKED_TERMS = {
+    "cartucho", "etiqueta", "impressora", "mochila", "papel", "refil de tinta", "scanner",
+    "toner",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +57,16 @@ def magalu_category_urls(store_url: str | None = None) -> tuple[str, ...]:
         raise CaptureError("Configure MAGALU_STORE_URL antes da descoberta")
     _validate_url(base + "/")
     return tuple(f"{base}/{slug}/l/{code}/" for slug, code in MAGALU_CATEGORY_PATHS)
+
+
+def relevant_magalu_offer(offer: Offer) -> bool:
+    source_category = (offer.category or "").casefold()
+    if "/informatica/" not in source_category:
+        return True
+    title = _normalized_text(offer.title)
+    if any(term in title for term in INFORMATICA_BLOCKED_TERMS):
+        return False
+    return any(term in title for term in INFORMATICA_ALLOWED_TERMS)
 
 
 def discover_magalu_categories(
@@ -151,6 +172,7 @@ def discover_magalu_html(html: str, final_url: str) -> list[Offer]:
             product_key=f"magalu:{product_id}" if product_id else None,
             price=price, original_price=original if original and original > price else None,
             store="magalu", image_url=_image_url(product.get("image")), available=True,
+            category=final_url,
         )
         offers[offer.product_key or offer.affiliate_url] = offer
     return list(offers.values())
@@ -203,6 +225,13 @@ def _offer_from_listing_row(row: dict[str, Any], category_url: str) -> Offer | N
         store="magalu", image_url=str(row.get("image") or "") or None, available=True,
         category=category_url,
     )
+
+
+def _normalized_text(value: str) -> str:
+    import unicodedata
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", normalized).strip()
 
 
 def capture_magalu(url: str, timeout: int = 25) -> CapturedPage:

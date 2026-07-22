@@ -121,6 +121,10 @@ python -m loot_ofertas.cli discover-magalu --limit 50 --min-discount 10
 
 O comando deduplica os produtos, salva o preço no histórico e prepara mensagem
 somente quando o desconto da loja ou a comparação de mercado aprovar a oferta.
+Games, celulares, tablets e casa inteligente são aceitos integralmente. Na área
+de informática, o filtro mantém computadores, hardware, rede, armazenamento,
+monitores e periféricos, descartando itens como mochilas, impressoras e toner.
+Use `--include-all` para desativar esse filtro em uma execução manual.
 Use `--google` apenas em execuções controladas, pois cada produto comparado consome
 uma consulta da SerpApi. Se a leitura direta receber CAPTCHA, o capturador tenta o
 navegador Python; `MAGALU_BROWSER_HEADLESS=false` permite uma sessão visível local.

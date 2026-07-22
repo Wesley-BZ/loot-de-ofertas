@@ -6,7 +6,9 @@ from loot_ofertas.magalu import (
     discover_magalu_html,
     magalu_affiliate_url,
     magalu_category_urls,
+    relevant_magalu_offer,
 )
+from loot_ofertas.models import Offer
 
 
 HTML = """
@@ -79,3 +81,24 @@ def test_listing_row_ignores_installment_value(monkeypatch):
     assert offer is not None
     assert offer.original_price == 199.90
     assert offer.price == 129.90
+
+
+def test_filters_unrelated_informatica_products():
+    backpack = Offer(
+        "Mochila Masculina Faculdade", "https://example.com", 60, "magalu",
+        category="https://loja/informatica/l/in/",
+    )
+    monitor = Offer(
+        "Monitor Gamer 27 polegadas 180Hz", "https://example.com", 900, "magalu",
+        category="https://loja/informatica/l/in/",
+    )
+    assert not relevant_magalu_offer(backpack)
+    assert relevant_magalu_offer(monitor)
+
+
+def test_keeps_all_selected_non_informatica_categories():
+    phone = Offer(
+        "Smartphone Galaxy", "https://example.com", 1500, "magalu",
+        category="https://loja/celulares-e-smartphones/l/te/",
+    )
+    assert relevant_magalu_offer(phone)
