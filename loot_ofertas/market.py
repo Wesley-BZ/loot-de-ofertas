@@ -197,6 +197,9 @@ def assess_deal(offer: Offer, quotes: list[MarketQuote], history_prices: list[fl
         label = "excelente"
     elif count >= 1 and (fair_market or (claimed >= 15 and current <= (market_median or current) * 1.03)):
         label = "promocao"
+    elif count == 0 and normalize_store(offer.store) == "Magalu" and claimed >= 10:
+        label = "promocao_loja"
+        reasons.append("desconto confirmado dentro da loja Magazine Você")
     elif count == 0 and claimed >= 20:
         label = "potencial_promocao"
         reasons.append("aguardando comparação com outras lojas")

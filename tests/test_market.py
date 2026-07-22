@@ -23,3 +23,10 @@ def test_history_does_not_veto_good_current_market_price():
 def test_product_matching_rejects_different_models():
     assert same_product("Monitor LG 24GN60R 24", "Monitor Gamer LG 24GN60R")
     assert not same_product("Monitor LG 24GN60R", "Monitor LG 27GN800")
+
+
+def test_magalu_discount_can_rank_before_google_comparison():
+    offer = Offer("Mouse Gamer Logitech G203", "https://magazinevoce.com/produto", 116, "magalu", original_price=157)
+    assessment = assess_deal(offer, [], [])
+    assert assessment.label == "promocao_loja"
+    assert "Magazine Você" in " ".join(assessment.reasons)

@@ -312,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         assessment = _record_and_compare(repo, offer, use_google=False)
         if (
             not args.force and not args.dry_run
-            and assessment.label not in {"imperdivel", "excelente", "promocao"}
+            and assessment.label not in {"imperdivel", "excelente", "promocao", "promocao_loja"}
         ):
             print(f"Oferta {offer.id} não publicada: avaliação atual é {assessment.label}.")
             continue

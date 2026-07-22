@@ -73,7 +73,7 @@ Automação individual pela WhatsApp Business Platform poderá ser adicionada de
 
 O histórico próprio ajuda, mas não veta uma oferta boa. A decisão principal compara
 o preço efetivo atual com o mesmo produto em outras lojas confiáveis. O sistema
-classifica como `imperdivel`, `excelente`, `promocao`, `potencial_promocao` ou
+classifica como `imperdivel`, `excelente`, `promocao`, `promocao_loja`, `potencial_promocao` ou
 `preco_comum`. Ofertas não confirmadas não são publicadas automaticamente.
 
 Atualize as ofertas salvas sem publicar:
