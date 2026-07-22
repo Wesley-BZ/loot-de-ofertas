@@ -69,6 +69,49 @@ Automação individual pela WhatsApp Business Platform poderá ser adicionada de
 - Painel web para aprovar ofertas antes da publicação.
 - Agendador com limites por canal e histórico de cliques/vendas.
 
+## Comparação de mercado e promoções reais
+
+O histórico próprio ajuda, mas não veta uma oferta boa. A decisão principal compara
+o preço efetivo atual com o mesmo produto em outras lojas confiáveis. O sistema
+classifica como `imperdivel`, `excelente`, `promocao`, `potencial_promocao` ou
+`preco_comum`. Ofertas não confirmadas não são publicadas automaticamente.
+
+Atualize as ofertas salvas sem publicar:
+
+```powershell
+python -m loot_ofertas.cli monitor --limit 10
+```
+
+Adicione uma cotação concorrente encontrada em outra loja:
+
+```powershell
+python -m loot_ofertas.cli market-add 5 --store Amazon --price 499.90 --url "LINK"
+```
+
+Para comparação automatizada pelo Google Shopping, crie uma chave da SerpApi,
+salve-a localmente como `SERPAPI_API_KEY` e execute:
+
+```powershell
+python -m loot_ofertas.cli monitor --limit 10 --google
+```
+
+O Windows pode executar a captura automaticamente a cada 30 minutos pela tarefa
+`LootDeOfertas-Monitor`. O monitor apenas atualiza, compara e salva; ele não envia
+mensagens.
+
+A SerpApi é opcional e pode ser paga. Sem ela, o portfólio multi-loja e o histórico
+continuam funcionando normalmente.
+
+## Captura Magalu
+
+O comando `capture` aceita links públicos do Magalu e do Magazine Você. Quando
+`MAGALU_STORE_URL` aponta para sua loja real, links públicos do Magalu são convertidos
+para a mesma rota dentro da sua loja de afiliado antes de serem salvos.
+
+```powershell
+python -m loot_ofertas.cli capture "LINK_MAGALU"
+```
+
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução. Por padrão, a

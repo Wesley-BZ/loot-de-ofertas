@@ -253,6 +253,21 @@ class OfferRepository:
             row = connection.execute("SELECT * FROM offers WHERE id=?", (offer_id,)).fetchone()
         return self._offer_from_row(row) if row else None
 
+    def prices_for(self, product_key: str, limit: int = 200) -> list[float]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """SELECT price, shipping_price FROM price_history
+                   WHERE product_key=? AND available=1 ORDER BY id DESC LIMIT ?""",
+                (product_key, limit),
+            ).fetchall()
+        return [float(row["price"]) + float(row["shipping_price"] or 0) for row in rows]
+
+    def mark_duplicate(self, old_offer_id: int, canonical_offer_id: int) -> None:
+        if old_offer_id == canonical_offer_id:
+            return
+        with self.connection() as connection:
+            connection.execute("UPDATE offers SET status='duplicate' WHERE id=?", (old_offer_id,))
+
     def eligible_ready(
         self,
         channel: str,

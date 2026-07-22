@@ -5,9 +5,11 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 outbox/
+logs/
 .whatsapp-session/
 .wppconnect-server/
 .capture-session/
+.magalu-session/
 data/
 .meli-auth.json
 .meli-token.json
