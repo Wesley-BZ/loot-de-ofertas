@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Loot de Ofertas · Painel</title>
+  <style>
+    :root{color-scheme:dark;--bg:#070b14;--panel:#101725;--panel2:#151e2f;--line:#243049;--text:#edf4ff;--muted:#8fa2bd;--cyan:#36d7ff;--green:#45e6a6;--yellow:#ffd166;--red:#ff6b7d;--purple:#9b8cff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#12213b 0,transparent 34%),var(--bg);color:var(--text);font:14px Inter,Segoe UI,sans-serif}
+    header{position:sticky;top:0;z-index:4;display:flex;justify-content:space-between;gap:20px;align-items:center;padding:18px 28px;background:#070b14e8;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}
+    h1{font-size:20px;margin:0;letter-spacing:.2px}.brand{display:flex;gap:12px;align-items:center}.logo{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--cyan),var(--purple));color:#07101d;font-size:20px;box-shadow:0 0 28px #36d7ff33}
+    .sub{color:var(--muted);font-size:12px;margin-top:3px}.live{display:flex;align-items:center;gap:8px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+    main{max-width:1520px;margin:auto;padding:24px 28px 50px}.grid{display:grid;grid-template-columns:repeat(6,minmax(145px,1fr));gap:13px}.card,.panel{background:linear-gradient(145deg,#111a2a,#0d1421);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 36px #0004}.card{padding:16px}.metric{font-size:25px;font-weight:750;margin-top:8px}.label{color:var(--muted);font-size:12px}.ok{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+    .columns{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:16px}.panel{overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}h2{font-size:15px;margin:0}.tools{display:flex;gap:8px}.tools input,.tools select{color:var(--text);background:#0a101b;border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none}
+    .table-wrap{overflow:auto;max-height:570px}table{border-collapse:collapse;width:100%;min-width:840px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid #1d283b;vertical-align:middle}th{position:sticky;top:0;background:#101725;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;z-index:2}tr:hover td{background:#162034}.product{display:flex;align-items:center;gap:10px;min-width:310px}.thumb{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#202b3d}.title{font-weight:600;line-height:1.25}.tiny{font-size:11px;color:var(--muted);margin-top:4px}.price{font-weight:750;white-space:nowrap}.old{text-decoration:line-through;color:var(--muted);font-size:11px}.badge{display:inline-flex;padding:4px 8px;border-radius:99px;background:#23304a;color:#bad0ef;font-size:11px;white-space:nowrap}.badge.good{background:#123b30;color:#77f5c5}.badge.wait{background:#453817;color:#ffe08b}.badge.no{background:#45202b;color:#ff9aaa}a{color:var(--cyan);text-decoration:none}
+    .status-box{padding:18px;display:grid;gap:13px}.status-row{display:flex;justify-content:space-between;gap:15px;padding-bottom:12px;border-bottom:1px solid #1d283b}.status-row:last-child{border:0}.bars{display:grid;gap:12px;padding:16px 18px}.bar-top{display:flex;justify-content:space-between;font-size:12px}.bar{height:7px;border-radius:10px;background:#202b3d;overflow:hidden}.fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--cyan),var(--purple))}
+    .tabs{display:flex;gap:4px}.tab{border:0;color:var(--muted);background:transparent;padding:8px 11px;border-radius:8px;cursor:pointer}.tab.active{background:#22304a;color:var(--text)}.view{display:none}.view.active{display:block}.log{height:430px;overflow:auto;margin:0;padding:16px 18px;background:#080d16;color:#a8bad3;font:12px/1.55 Consolas,monospace;white-space:pre-wrap}.empty{padding:36px;text-align:center;color:var(--muted)}.footer{color:var(--muted);font-size:11px;text-align:center;margin-top:18px}
+    @media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}.columns{grid-template-columns:1fr}}@media(max-width:650px){header,main{padding-left:15px;padding-right:15px}.grid{grid-template-columns:repeat(2,1fr)}.tools input{width:140px}}
+  </style>
+</head>
+<body>
+<header><div class="brand"><div class="logo">🎮</div><div><h1>Loot de Ofertas</h1><div class="sub">Central de operação e curadoria</div></div></div><div class="live"><span class="dot" id="live-dot"></span><span id="updated">Carregando…</span></div></header>
+<main>
+  <section class="grid">
+    <div class="card"><div class="label">Bot</div><div class="metric" id="bot">—</div><div class="tiny" id="bot-detail"></div></div>
+    <div class="card"><div class="label">WhatsApp</div><div class="metric" id="wpp">—</div><div class="tiny">Grupo configurado</div></div>
+    <div class="card"><div class="label">Produtos coletados</div><div class="metric" id="total">0</div><div class="tiny" id="stores"></div></div>
+    <div class="card"><div class="label">Na fila</div><div class="metric" id="ready">0</div><div class="tiny">Disponíveis para avaliar</div></div>
+    <div class="card"><div class="label">Publicações</div><div class="metric" id="published">0</div><div class="tiny">Histórico total</div></div>
+    <div class="card"><div class="label">Cotações salvas</div><div class="metric" id="prices">0</div><div class="tiny">Base do histórico de preço</div></div>
+  </section>
+
+  <section class="columns">
+    <div class="panel">
+      <div class="panel-head"><h2>Produtos coletados</h2><div class="tools"><input id="search" placeholder="Buscar produto…"><select id="store"><option value="">Todas as lojas</option></select></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Produto</th><th>Preço</th><th>Desconto</th><th>Avaliação</th><th>Score</th><th>Estado</th><th>Link</th></tr></thead><tbody id="offers"></tbody></table><div class="empty" id="offers-empty" hidden>Nenhum produto encontrado.</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Operação</h2></div>
+      <div class="status-box" id="operation"></div>
+      <div class="panel-head"><h2>Categorias coletadas</h2></div><div class="bars" id="categories"></div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="panel-head"><h2>Atividade</h2><div class="tabs"><button class="tab active" data-view="pubs">Publicações</button><button class="tab" data-view="logs">Logs</button></div></div>
+    <div class="view active" id="pubs"><div class="table-wrap" style="max-height:430px"><table><thead><tr><th>Data</th><th>Produto</th><th>Mensagem</th><th>Canal</th><th>Preço</th></tr></thead><tbody id="publications"></tbody></table><div class="empty" id="pubs-empty" hidden>Ainda não há publicações.</div></div></div>
+    <div class="view" id="logs"><pre class="log" id="log">Aguardando o monitor…</pre></div>
+  </section>
+  <div class="footer">Atualização automática a cada 15 segundos · Nenhum segredo é exibido neste painel</div>
+</main>
+<script>
+let data={offers:[]};
+const money=v=>v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const date=v=>v?new Date(v.endsWith('Z')||/[+-]\d\d:\d\d$/.test(v)?v:v+'Z').toLocaleString('pt-BR'):'—';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function badge(label){const good=['imperdivel','excelente','promocao','promocao_loja','published'].includes(label);const wait=['potencial_promocao','ready'].includes(label);return `<span class="badge ${good?'good':wait?'wait':'no'}">${esc((label||'sem avaliação').replaceAll('_',' '))}</span>`}
+function renderOffers(){const q=document.querySelector('#search').value.toLowerCase(),store=document.querySelector('#store').value;const rows=data.offers.filter(o=>(!q||o.title.toLowerCase().includes(q))&&(!store||o.store===store));document.querySelector('#offers-empty').hidden=rows.length>0;document.querySelector('#offers').innerHTML=rows.map(o=>`<tr><td><div class="product">${o.image_url?`<img class="thumb" src="${esc(o.image_url)}" loading="lazy">`:'<div class="thumb"></div>'}<div><div class="title">${esc(o.title)}</div><div class="tiny">${esc(o.store)} · visto ${date(o.last_seen_at)}</div></div></div></td><td><div class="price">${money(o.price)}</div>${o.original_price?`<div class="old">${money(o.original_price)}</div>`:''}</td><td>${o.discount_percent?`<span class="ok">-${o.discount_percent}%</span>`:'—'}</td><td>${badge(o.assessment)}</td><td>${Number(o.score).toFixed(1)}</td><td>${badge(o.status)}</td><td><a href="${esc(o.affiliate_url)}" target="_blank" rel="noopener">abrir ↗</a></td></tr>`).join('')}
+function render(d){data=d;document.querySelector('#updated').textContent='Atualizado '+date(d.generated_at);document.querySelector('#bot').textContent=d.bot.active?'ATIVO':'PARADO';document.querySelector('#bot').className='metric '+(d.bot.active?'ok':'bad');document.querySelector('#bot-detail').textContent=d.bot.send_allowed?'Envio liberado':d.bot.send_reason;document.querySelector('#wpp').textContent=d.whatsapp.connected?'CONECTADO':'OFFLINE';document.querySelector('#wpp').className='metric '+(d.whatsapp.connected?'ok':'bad');document.querySelector('#total').textContent=d.stats.total||0;document.querySelector('#ready').textContent=d.stats.ready||0;document.querySelector('#published').textContent=d.publications.length;document.querySelector('#prices').textContent=d.stats.price_observations||0;document.querySelector('#stores').textContent=`${d.stats.stores||0} loja(s) · ${d.stats.webhooks||0} webhook(s)`;
+const stores=[...new Set(d.offers.map(o=>o.store))].sort();document.querySelector('#store').innerHTML='<option value="">Todas as lojas</option>'+stores.map(s=>`<option>${esc(s)}</option>`).join('');renderOffers();
+document.querySelector('#operation').innerHTML=`<div class="status-row"><span>Próximo envio</span><b class="${d.bot.send_allowed?'ok':'warn'}">${esc(d.bot.send_allowed?'liberado':d.bot.send_reason)}</b></div><div class="status-row"><span>Janela ativa</span><b>${esc(d.bot.schedule)}</b></div><div class="status-row"><span>Intervalo mínimo</span><b>${d.bot.interval_minutes} min</b></div><div class="status-row"><span>Ciclo do monitor</span><b>${d.bot.monitor_interval_minutes} min</b></div><div class="status-row"><span>Limite diário</span><b>${d.bot.daily_limit} mensagens</b></div><div class="status-row"><span>Último log</span><b>${date(d.bot.log_updated)}</b></div>`;
+const max=Math.max(1,...d.categories.map(c=>c.total));document.querySelector('#categories').innerHTML=d.categories.map(c=>`<div><div class="bar-top"><span>${esc(c.category)}</span><b>${c.total}</b></div><div class="bar"><div class="fill" style="width:${c.total/max*100}%"></div></div></div>`).join('');
+document.querySelector('#pubs-empty').hidden=d.publications.length>0;document.querySelector('#publications').innerHTML=d.publications.map(p=>`<tr><td>${date(p.published_at)}</td><td>${esc(p.title||'Produto removido')}</td><td>${esc(p.headline||'—')}</td><td>${esc(p.channel)}</td><td class="price">${money(p.price)}</td></tr>`).join('');document.querySelector('#log').textContent=d.logs.length?d.logs.join('\n'):'O monitor ainda não registrou atividade.'}
+async function refresh(){try{const r=await fetch('/api/dashboard',{cache:'no-store'});if(!r.ok)throw Error(r.status);render(await r.json());document.querySelector('#live-dot').className='dot'}catch(e){document.querySelector('#updated').textContent='Falha ao atualizar';document.querySelector('#live-dot').className='dot bad'}}
+document.querySelector('#search').addEventListener('input',renderOffers);document.querySelector('#store').addEventListener('change',renderOffers);document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelector('#'+b.dataset.view).classList.add('active')});refresh();setInterval(refresh,15000);
+</script>
+</body></html>

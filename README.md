@@ -2,6 +2,18 @@
 
 MVP de curadoria e divulgação de ofertas gamers com links oficiais de afiliado.
 
+## Painel local
+
+O painel de monitoramento mostra conexão do bot, produtos coletados, fila,
+avaliações, histórico de preços, publicações e logs. Inicie com:
+
+```powershell
+python -m uvicorn loot_ofertas.webapp:app --host 127.0.0.1 --port 8000
+```
+
+Abra `http://127.0.0.1:8000/`. No Windows, a tarefa
+`LootDeOfertas-Dashboard` mantém o painel disponível após o login.
+
 ## O que já funciona
 
 - Cadastro manual ou importação CSV de ofertas Magalu/Shopee.

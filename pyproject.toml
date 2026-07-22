@@ -11,5 +11,8 @@ loot-ofertas = "loot_ofertas.cli:main"
 [tool.setuptools]
 packages = ["loot_ofertas"]
 
+[tool.setuptools.package-data]
+loot_ofertas = ["dashboard.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

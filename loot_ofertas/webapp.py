@@ -6,8 +6,15 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+
+from .config import load_env
+from .database import OfferRepository
+from .scheduling import PublicationPolicy
+from .wppconnect import WppConnectClient, WppConnectError
 
 
 app = FastAPI(title="Loot de Ofertas", docs_url=None, redoc_url=None)
@@ -37,14 +44,132 @@ def _initialize() -> None:
         )
 
 
-@app.get("/")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "loot-de-ofertas"}
+@app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard() -> HTMLResponse:
+    path = Path(__file__).with_name("dashboard.html")
+    return HTMLResponse(path.read_text(encoding="utf-8"))
 
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _loot_database_path() -> Path:
+    return Path(os.getenv("LOOT_DATABASE", "loot_ofertas.db"))
+
+
+def _rows(connection: sqlite3.Connection, query: str, params: tuple = ()) -> list[dict[str, Any]]:
+    return [dict(row) for row in connection.execute(query, params).fetchall()]
+
+
+def _has_table(connection: sqlite3.Connection, name: str) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone() is not None
+
+
+def _wpp_status() -> dict[str, Any]:
+    base = os.getenv("WPP_BASE_URL", "").strip()
+    session = os.getenv("WPP_SESSION", "").strip()
+    token = os.getenv("WPP_TOKEN", "").strip()
+    if not all((base, session, token)):
+        return {"connected": False, "detail": "não configurado"}
+    try:
+        response = WppConnectClient(base, session, token, timeout=3).status()
+        serialized = json.dumps(response, ensure_ascii=False).casefold()
+        connected = "connected" in serialized and "disconnected" not in serialized
+        return {"connected": connected, "detail": "conectado" if connected else "sessão inativa"}
+    except WppConnectError:
+        return {"connected": False, "detail": "servidor indisponível"}
+
+
+@app.get("/api/dashboard")
+def dashboard_data() -> dict[str, Any]:
+    load_env()
+    database = _loot_database_path()
+    repo = OfferRepository(database)
+    repo.initialize()
+    policy = PublicationPolicy.from_env()
+    decision = repo.publication_decision("wppconnect", policy)
+    now = policy.local_now()
+    with repo.connection() as connection:
+        stats = dict(connection.execute(
+            """SELECT COUNT(*) total,
+                      SUM(CASE WHEN status='ready' AND available=1 THEN 1 ELSE 0 END) ready,
+                      SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) published,
+                      COUNT(DISTINCT store) stores
+               FROM offers"""
+        ).fetchone())
+        offers = _rows(connection, """
+            SELECT o.id, o.title, o.price, o.original_price, o.store, o.coupon, o.category,
+                   o.score, o.status, o.available, o.affiliate_url, o.image_url, o.last_seen_at,
+                   a.label assessment, a.confidence, a.competitor_count, a.market_median,
+                   a.market_savings_percent, a.reasons
+            FROM offers o
+            LEFT JOIN deal_assessments a ON a.id=(
+                SELECT da.id FROM deal_assessments da WHERE da.offer_id=o.id ORDER BY da.id DESC LIMIT 1
+            )
+            ORDER BY o.last_seen_at DESC, o.score DESC LIMIT 100
+        """) if _has_table(connection, "deal_assessments") else _rows(connection, """
+            SELECT id, title, price, original_price, store, coupon, category, score, status,
+                   available, affiliate_url, image_url, last_seen_at
+            FROM offers ORDER BY last_seen_at DESC, score DESC LIMIT 100
+        """)
+        publications = _rows(connection, """
+            SELECT p.id, p.offer_id, o.title, p.channel, p.category, p.price, p.headline,
+                   p.published_at
+            FROM publication_history p LEFT JOIN offers o ON o.id=p.offer_id
+            ORDER BY p.id DESC LIMIT 50
+        """)
+        prices = int(connection.execute("SELECT COUNT(*) FROM price_history").fetchone()[0])
+        categories = _rows(connection, """
+            SELECT COALESCE(category, 'sem categoria') category, COUNT(*) total
+            FROM offers GROUP BY category ORDER BY total DESC LIMIT 12
+        """)
+    webhook_count = 0
+    webhook_db = _database_path()
+    if webhook_db.exists():
+        with sqlite3.connect(webhook_db) as connection:
+            if _has_table(connection, "mercado_livre_webhooks"):
+                webhook_count = int(connection.execute(
+                    "SELECT COUNT(*) FROM mercado_livre_webhooks"
+                ).fetchone()[0])
+    log_path = Path("logs/monitor.log")
+    log_lines = []
+    log_updated = None
+    if log_path.exists():
+        log_updated = datetime.fromtimestamp(log_path.stat().st_mtime, policy.timezone).isoformat()
+        log_lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-180:]
+    for offer in offers:
+        try:
+            offer["reasons"] = json.loads(offer.get("reasons") or "[]")
+        except (TypeError, json.JSONDecodeError):
+            offer["reasons"] = []
+        original = offer.get("original_price")
+        offer["discount_percent"] = round((1 - offer["price"] / original) * 100, 1) if original and original > offer["price"] else 0
+    return {
+        "generated_at": now.isoformat(),
+        "bot": {
+            "active": True,
+            "send_allowed": decision.allowed,
+            "send_reason": decision.reason,
+            "wait_seconds": decision.wait_seconds,
+            "schedule": f"{policy.start_hour:02d}:00–{policy.end_hour:02d}:00",
+            "interval_minutes": policy.min_interval_minutes,
+            "daily_limit": policy.daily_limit,
+            "category_limit": policy.category_daily_limit,
+            "monitor_interval_minutes": 30,
+            "log_updated": log_updated,
+        },
+        "whatsapp": {**_wpp_status(), "group_configured": bool(os.getenv("WPP_GROUP_ID", "").strip())},
+        "stats": {**stats, "price_observations": prices, "webhooks": webhook_count},
+        "offers": offers,
+        "publications": publications,
+        "categories": categories,
+        "logs": log_lines,
+    }
 
 
 @app.post("/webhooks/mercadolivre")
