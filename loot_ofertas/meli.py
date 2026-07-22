@@ -101,7 +101,11 @@ def refresh_access_token(current: dict[str, Any] | None = None) -> dict[str, Any
 def api_get(path: str) -> Any:
     request = urllib.request.Request(
         API_URL + "/" + path.lstrip("/"),
-        headers={"Authorization": f"Bearer {access_token()}", "Accept": "application/json"},
+        headers={
+            "Authorization": f"Bearer {access_token()}",
+            "Accept": "application/json",
+            "User-Agent": "LootDeOfertas/0.1 (+https://github.com/Wesley-BZ/loot-de-ofertas)",
+        },
     )
     try:
         with urllib.request.urlopen(request, timeout=25) as response:

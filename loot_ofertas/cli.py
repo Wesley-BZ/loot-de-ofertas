@@ -7,6 +7,7 @@ import sys
 from .capture import (
     CaptureError,
     capture_mercado_livre,
+    capture_mercado_livre_api,
     capture_mercado_livre_browser,
     save_message,
 )
@@ -159,16 +160,21 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "capture":
         try:
-            captured = capture_mercado_livre(args.url)
-        except CaptureError as direct_error:
-            print(f"Leitura direta indisponível ({direct_error}). Tentando pelo navegador...")
+            captured = capture_mercado_livre_api(args.url)
+            print("Produto consultado pela API oficial do Mercado Livre.")
+        except CaptureError as api_error:
+            print(f"API indisponível ({api_error}). Tentando leitura direta...")
             try:
-                captured = capture_mercado_livre_browser(
-                    args.url, session_dir=os.getenv("CAPTURE_SESSION_DIR", ".capture-session")
-                )
-            except CaptureError as browser_error:
-                print(f"Captura recusada: {browser_error}", file=sys.stderr)
-                return 2
+                captured = capture_mercado_livre(args.url)
+            except CaptureError as direct_error:
+                print(f"Leitura direta indisponível ({direct_error}). Tentando pelo navegador...")
+                try:
+                    captured = capture_mercado_livre_browser(
+                        args.url, session_dir=os.getenv("CAPTURE_SESSION_DIR", ".capture-session")
+                    )
+                except CaptureError as browser_error:
+                    print(f"Captura recusada: {browser_error}", file=sys.stderr)
+                    return 2
         offer = captured.offer
         offer.category = category_for(offer)
         offer_id = repo.add(offer)

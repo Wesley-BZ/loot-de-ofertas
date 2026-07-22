@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .identity import product_identity
+from .meli import MeliError, api_get
 from .models import Offer
 
 
@@ -26,6 +27,69 @@ class CaptureError(RuntimeError):
 class CapturedPage:
     offer: Offer
     final_url: str
+
+
+def capture_mercado_livre_api(url: str) -> CapturedPage:
+    _validate_http_url(url)
+    _validate_mercado_livre_host(url)
+    decoded = urllib.parse.unquote(url)
+    catalog_match = re.search(r"\b(MLBU\d+)\b", decoded, re.IGNORECASE)
+    if not catalog_match:
+        raise CaptureError("O link não contém o identificador de catálogo MLBU")
+    catalog_id = catalog_match.group(1).upper()
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+    requested_item = str(query.get("wid", [""])[0]).upper()
+    if not re.fullmatch(r"MLB\d+", requested_item):
+        requested_item = next(
+            (value.upper() for value in re.findall(r"\bMLB\d+\b", decoded, re.IGNORECASE)), ""
+        )
+    try:
+        listing_data = api_get(f"products/{catalog_id}/items")
+        results = listing_data.get("results", []) if isinstance(listing_data, dict) else []
+        listing = next(
+            (row for row in results if str(row.get("item_id", "")).upper() == requested_item),
+            results[0] if results else None,
+        )
+        if not isinstance(listing, dict):
+            raise CaptureError("A API não retornou ofertas para esse produto")
+        product = api_get(f"user-products/{listing.get('user_product_id') or catalog_id}")
+        seller = api_get(f"users/{listing['seller_id']}")
+        category = api_get(f"categories/{listing['category_id']}")
+    except (MeliError, KeyError) as error:
+        raise CaptureError(f"A API do Mercado Livre não conseguiu ler o produto: {error}") from error
+
+    title = str(product.get("name") or product.get("family_name") or "").strip()
+    price = _first_price(listing.get("price"))
+    if not title or price is None:
+        raise CaptureError("A API retornou o produto sem título ou preço")
+    original_price = _first_price(listing.get("original_price"))
+    pictures = product.get("pictures") or []
+    image_url = next(
+        (str(picture.get("secure_url")) for picture in pictures if picture.get("secure_url")),
+        product.get("thumbnail"),
+    )
+    reputation = seller.get("seller_reputation") or {}
+    rating_match = re.match(r"(\d+)", str(reputation.get("level_id") or ""))
+    transactions = reputation.get("transactions") or {}
+    shipping = listing.get("shipping") or {}
+    item_id = str(listing.get("item_id") or requested_item).upper()
+    offer = Offer(
+        title=title,
+        affiliate_url=url,
+        source_url=url,
+        product_key=f"mercadolivre:{item_id.casefold()}",
+        price=price,
+        original_price=original_price if original_price and original_price > price else None,
+        store="mercadolivre",
+        image_url=str(image_url) if image_url else None,
+        category=str(category.get("name") or ""),
+        seller_name=str(seller.get("nickname") or "") or None,
+        seller_rating=float(rating_match.group(1)) if rating_match else None,
+        sold_count=int(transactions.get("total") or 0),
+        shipping_price=0.0 if shipping.get("free_shipping") else None,
+        available=True,
+    )
+    return CapturedPage(offer, url)
 
 
 class _ProductMetadataParser(HTMLParser):
