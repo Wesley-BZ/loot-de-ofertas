@@ -1,0 +1,15 @@
+[project]
+name = "loot-ofertas"
+version = "0.1.0"
+description = "Curadoria e divulgacao de ofertas gamers com links de afiliado"
+requires-python = ">=3.11"
+dependencies = ["pyautogui>=0.9.54,<1", "pyperclip>=1.9,<2", "selenium>=4.22,<5"]
+
+[project.scripts]
+loot-ofertas = "loot_ofertas.cli:main"
+
+[tool.setuptools]
+packages = ["loot_ofertas"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
