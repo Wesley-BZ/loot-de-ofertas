@@ -4,6 +4,7 @@ from loot_ofertas.webapp import app
 from loot_ofertas.database import OfferRepository
 from loot_ofertas.market import MarketRepository
 from loot_ofertas.models import Offer
+from loot_ofertas.capture import CaptureError
 
 
 def test_webhook_accepts_and_deduplicates_notification(tmp_path, monkeypatch):
@@ -58,3 +59,37 @@ def test_dashboard_serves_monitoring_data(tmp_path, monkeypatch):
     assert len(payload["integrations"]) >= 5
     assert "recent_errors" in payload
     assert "WPP_TOKEN" not in str(payload)
+
+
+def test_manual_offer_can_be_saved_from_dashboard(tmp_path, monkeypatch):
+    database = tmp_path / "loot.db"
+    monkeypatch.setenv("LOOT_DATABASE", str(database))
+    client = TestClient(app)
+
+    response = client.post("/api/offers", json={
+        "url": "https://shopee.com.br/produto",
+        "title": "Mouse Gamer RGB",
+        "price": 79.9,
+        "original_price": 109.9,
+        "store": "shopee",
+        "coupon": "GAMER10",
+        "publish_now": False,
+    })
+
+    assert response.status_code == 200
+    assert response.json()["published"] is False
+    assert OfferRepository(database).ready(10)[0].store == "shopee"
+
+
+def test_inspect_returns_editable_fields_when_store_blocks_capture(monkeypatch):
+    monkeypatch.setattr(
+        "loot_ofertas.webapp._capture_url",
+        lambda url: (_ for _ in ()).throw(CaptureError("bloqueado")),
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/offers/inspect", json={"url": "https://shopee.com.br/item"})
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert response.json()["offer"]["store"] == "shopee"

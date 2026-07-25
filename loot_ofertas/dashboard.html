@@ -15,7 +15,8 @@
     .table-wrap{overflow:auto;max-height:570px}table{border-collapse:collapse;width:100%;min-width:840px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid #1d283b;vertical-align:middle}th{position:sticky;top:0;background:#101725;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;z-index:2}tr:hover td{background:#162034}.product{display:flex;align-items:center;gap:10px;min-width:310px}.thumb{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#202b3d}.title{font-weight:600;line-height:1.25}.tiny{font-size:11px;color:var(--muted);margin-top:4px}.price{font-weight:750;white-space:nowrap}.old{text-decoration:line-through;color:var(--muted);font-size:11px}.badge{display:inline-flex;padding:4px 8px;border-radius:99px;background:#23304a;color:#bad0ef;font-size:11px;white-space:nowrap}.badge.good{background:#123b30;color:#77f5c5}.badge.wait{background:#453817;color:#ffe08b}.badge.no{background:#45202b;color:#ff9aaa}a{color:var(--cyan);text-decoration:none}
     .status-box{padding:18px;display:grid;gap:13px}.status-row{display:flex;justify-content:space-between;gap:15px;padding-bottom:12px;border-bottom:1px solid #1d283b}.status-row:last-child{border:0}.bars{display:grid;gap:12px;padding:16px 18px}.bar-top{display:flex;justify-content:space-between;font-size:12px}.bar{height:7px;border-radius:10px;background:#202b3d;overflow:hidden}.fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--cyan),var(--purple))}
     .tabs{display:flex;gap:4px}.tab{border:0;color:var(--muted);background:transparent;padding:8px 11px;border-radius:8px;cursor:pointer}.tab.active{background:#22304a;color:var(--text)}.view{display:none}.view.active{display:block}.log{height:430px;overflow:auto;margin:0;padding:16px 18px;background:#080d16;color:#a8bad3;font:12px/1.55 Consolas,monospace;white-space:pre-wrap}.empty{padding:36px;text-align:center;color:var(--muted)}.footer{color:var(--muted);font-size:11px;text-align:center;margin-top:18px}
-    @media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}.columns{grid-template-columns:1fr}}@media(max-width:650px){header,main{padding-left:15px;padding-right:15px}.grid{grid-template-columns:repeat(2,1fr)}.tools input{width:140px}}
+    .capture{margin-top:16px;padding:18px}.capture-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.field{display:grid;gap:6px}.field.wide{grid-column:span 2}.field.full{grid-column:1/-1}.field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}.field input{width:100%;color:var(--text);background:#0a101b;border:1px solid var(--line);border-radius:9px;padding:10px 11px;outline:none}.field input:focus{border-color:var(--cyan)}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--line);border-radius:9px;padding:10px 14px;color:var(--text);background:#1b2940;cursor:pointer;font-weight:650}.btn:hover{filter:brightness(1.15)}.btn.primary{background:linear-gradient(135deg,#168db0,#6655c7);border:0}.btn.publish{background:#176c50;border-color:#248868}.btn:disabled{opacity:.55;cursor:wait}.form-status{color:var(--muted);margin-left:6px}.form-status.ok{color:var(--green)}.form-status.bad{color:var(--red)}.hint{color:var(--muted);font-size:12px;line-height:1.45;margin-top:5px}
+    @media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}.columns{grid-template-columns:1fr}.capture-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){header,main{padding-left:15px;padding-right:15px}.grid{grid-template-columns:repeat(2,1fr)}.tools input{width:140px}.capture-grid{grid-template-columns:1fr}.field.wide{grid-column:span 1}}
   </style>
 </head>
 <body>
@@ -28,6 +29,27 @@
     <div class="card"><div class="label">Na fila</div><div class="metric" id="ready">0</div><div class="tiny">Disponíveis para avaliar</div></div>
     <div class="card"><div class="label">Publicações</div><div class="metric" id="published">0</div><div class="tiny">Histórico total</div></div>
     <div class="card"><div class="label">Cotações salvas</div><div class="metric" id="prices">0</div><div class="tiny">Base do histórico de preço</div></div>
+  </section>
+
+  <section class="panel capture">
+    <div class="panel-head" style="padding:0 0 15px;border:0"><div><h2>Adicionar oferta por link</h2><div class="hint">Cole um link da Shopee, AliExpress, Mercado Livre, Magalu ou outra loja. Confira os dados antes de salvar ou publicar.</div></div></div>
+    <div class="capture-grid">
+      <div class="field full"><label>Link do produto *</label><input id="offer-url" type="url" placeholder="https://..." autocomplete="off"></div>
+      <div class="field wide"><label>Título do produto *</label><input id="offer-title" placeholder="Preenchido automaticamente quando possível"></div>
+      <div class="field"><label>Loja *</label><input id="offer-store" list="store-list" placeholder="shopee"><datalist id="store-list"><option value="shopee"><option value="aliexpress"><option value="mercadolivre"><option value="magalu"><option value="amazon"></datalist></div>
+      <div class="field"><label>Categoria</label><input id="offer-category" placeholder="Ex.: mouse_gamer"></div>
+      <div class="field"><label>Preço atual *</label><input id="offer-price" type="number" min="0.01" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Preço anterior</label><input id="offer-original" type="number" min="0.01" step="0.01" placeholder="Opcional"></div>
+      <div class="field"><label>Cupom</label><input id="offer-coupon" placeholder="Ex.: GAMER20 (20% OFF)"></div>
+      <div class="field"><label>Link de afiliado</label><input id="offer-affiliate" type="url" placeholder="Se for diferente do link original"></div>
+      <div class="field full"><label>Imagem</label><input id="offer-image" type="url" placeholder="URL pública da imagem (opcional)"></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="inspect-offer">Ler link automaticamente</button>
+      <button class="btn" id="save-offer">Salvar na fila</button>
+      <button class="btn publish" id="publish-offer">Publicar imediatamente</button>
+      <span class="form-status" id="offer-status">O link é obrigatório. Os demais campos podem ser revisados.</span>
+    </div>
   </section>
 
   <section class="columns">
@@ -65,5 +87,34 @@ const max=Math.max(1,...d.categories.map(c=>c.total));document.querySelector('#c
 document.querySelector('#pubs-empty').hidden=d.publications.length>0;document.querySelector('#publications').innerHTML=d.publications.map(p=>`<tr><td>${date(p.published_at)}</td><td>${esc(p.title||'Produto removido')}</td><td>${esc(p.headline||'—')}</td><td>${esc(p.channel)}</td><td class="price">${money(p.price)}</td></tr>`).join('');document.querySelector('#log').textContent=d.logs.length?d.logs.join('\n'):'O monitor ainda não registrou atividade.'}
 async function refresh(){try{const r=await fetch('/api/dashboard',{cache:'no-store'});if(!r.ok)throw Error(r.status);render(await r.json());document.querySelector('#live-dot').className='dot'}catch(e){document.querySelector('#updated').textContent='Falha ao atualizar';document.querySelector('#live-dot').className='dot bad'}}
 document.querySelector('#search').addEventListener('input',renderOffers);document.querySelector('#store').addEventListener('change',renderOffers);document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelector('#'+b.dataset.view).classList.add('active')});refresh();setInterval(refresh,15000);
+
+const offerFields={
+  url:document.querySelector('#offer-url'),affiliate_url:document.querySelector('#offer-affiliate'),
+  title:document.querySelector('#offer-title'),price:document.querySelector('#offer-price'),
+  original_price:document.querySelector('#offer-original'),store:document.querySelector('#offer-store'),
+  coupon:document.querySelector('#offer-coupon'),category:document.querySelector('#offer-category'),
+  image_url:document.querySelector('#offer-image')
+};
+const offerStatus=document.querySelector('#offer-status');
+function setOfferStatus(message,type=''){offerStatus.textContent=message;offerStatus.className='form-status '+type}
+function setOfferBusy(value){document.querySelectorAll('.capture button').forEach(button=>button.disabled=value)}
+function fillOffer(values){Object.entries(offerFields).forEach(([key,input])=>{if(values[key]!=null)input.value=values[key]})}
+async function inspectOffer(){
+  const url=offerFields.url.value.trim();if(!url){setOfferStatus('Cole primeiro o link do produto.','bad');return}
+  setOfferBusy(true);setOfferStatus('Lendo dados do produto…');
+  try{const response=await fetch('/api/offers/inspect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});const result=await response.json();if(!response.ok)throw Error(result.detail||'Falha na captura');fillOffer(result.offer||{});setOfferStatus(result.ok?'Dados encontrados. Confira antes de continuar.':`Leitura parcial: ${result.warning}. Preencha título e preço manualmente.`,result.ok?'ok':'bad')}
+  catch(error){setOfferStatus(error.message,'bad')}finally{setOfferBusy(false)}
+}
+function offerPayload(publishNow){const value=key=>offerFields[key].value.trim();return{url:value('url'),affiliate_url:value('affiliate_url')||null,title:value('title'),price:Number(value('price')),original_price:value('original_price')?Number(value('original_price')):null,store:value('store'),coupon:value('coupon')||null,category:value('category')||null,image_url:value('image_url')||null,publish_now:publishNow}}
+async function submitOffer(publishNow){
+  const payload=offerPayload(publishNow);if(!payload.url||!payload.title||!payload.store||!payload.price){setOfferStatus('Preencha link, título, loja e preço atual.','bad');return}
+  if(publishNow&&!confirm('Publicar esta oferta agora no grupo do WhatsApp?'))return;
+  setOfferBusy(true);setOfferStatus(publishNow?'Publicando no WhatsApp…':'Salvando na fila…');
+  try{const response=await fetch('/api/offers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.detail||'Falha ao salvar');setOfferStatus(result.published?`Oferta ${result.offer_id} publicada com sucesso.`:`Oferta ${result.offer_id} salva na fila.`, 'ok');await refresh()}
+  catch(error){setOfferStatus(error.message,'bad')}finally{setOfferBusy(false)}
+}
+document.querySelector('#inspect-offer').onclick=inspectOffer;
+document.querySelector('#save-offer').onclick=()=>submitOffer(false);
+document.querySelector('#publish-offer').onclick=()=>submitOffer(true);
 </script>
 </body></html>

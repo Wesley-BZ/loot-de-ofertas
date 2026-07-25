@@ -5,20 +5,45 @@ import json
 import os
 import sqlite3
 import subprocess
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
+from .capture import CaptureError, capture_mercado_livre, capture_mercado_livre_api
 from .config import load_env
 from .database import OfferRepository
+from .formatting import format_offer
+from .generic_capture import capture_generic_product, store_from_url
+from .magalu import capture_magalu
+from .marketing import category_for, headline_for
+from .models import Offer
 from .scheduling import PublicationPolicy
 from .wppconnect import WppConnectClient, WppConnectError
 
 
 app = FastAPI(title="Loot de Ofertas", docs_url=None, redoc_url=None)
+
+
+class LinkInput(BaseModel):
+    url: str
+
+
+class OfferInput(BaseModel):
+    url: str
+    affiliate_url: str | None = None
+    title: str
+    price: float
+    original_price: float | None = None
+    store: str
+    coupon: str | None = None
+    category: str | None = None
+    image_url: str | None = None
+    publish_now: bool = False
 
 
 def _database_path() -> Path:
@@ -57,8 +82,111 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/api/offers/inspect")
+def inspect_offer(payload: LinkInput) -> dict[str, Any]:
+    load_env()
+    url = payload.url.strip()
+    try:
+        offer = _capture_url(url)
+        return {"ok": True, "offer": _editable_offer(offer), "warning": None}
+    except CaptureError as error:
+        return {
+            "ok": False,
+            "offer": {
+                "url": url,
+                "affiliate_url": url,
+                "title": "",
+                "price": None,
+                "original_price": None,
+                "store": store_from_url(url),
+                "coupon": None,
+                "category": None,
+                "image_url": None,
+            },
+            "warning": str(error),
+        }
+
+
+@app.post("/api/offers")
+def create_offer(payload: OfferInput) -> dict[str, Any]:
+    load_env()
+    if payload.price <= 0:
+        raise HTTPException(status_code=422, detail="O preço precisa ser maior que zero")
+    if payload.original_price is not None and payload.original_price <= 0:
+        raise HTTPException(status_code=422, detail="O preço anterior precisa ser maior que zero")
+    offer = Offer(
+        title=payload.title.strip(),
+        affiliate_url=(payload.affiliate_url or payload.url).strip(),
+        source_url=payload.url.strip(),
+        price=payload.price,
+        original_price=payload.original_price,
+        store=payload.store.strip().casefold(),
+        coupon=(payload.coupon or "").strip() or None,
+        category=(payload.category or "").strip() or None,
+        image_url=(payload.image_url or "").strip() or None,
+    )
+    if not offer.title or not offer.store:
+        raise HTTPException(status_code=422, detail="Título e loja são obrigatórios")
+    offer.category = offer.category or category_for(offer)
+    repo = OfferRepository(_loot_database_path())
+    repo.initialize()
+    offer.id = repo.add(offer)
+    offer.headline = headline_for(offer, repo.recent_headlines(offer.category, 10))
+    published = False
+    if payload.publish_now:
+        base = os.getenv("WPP_BASE_URL", "").strip()
+        session = os.getenv("WPP_SESSION", "").strip()
+        token = os.getenv("WPP_TOKEN", "").strip()
+        group_id = os.getenv("WPP_GROUP_ID", "").strip()
+        if not all((base, session, token)):
+            raise HTTPException(status_code=503, detail="WPPConnect não está configurado")
+        try:
+            client = WppConnectClient(base, session, token)
+            group_id = group_id or client.find_group(
+                os.getenv("WHATSAPP_GROUP_NAME", "Loot de Ofertas Gamers")
+            )
+            client.send_offer(group_id, offer, os.getenv("WHATSAPP_IMAGE_MODE", "link-preview"))
+        except WppConnectError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        repo.record_headline(offer, offer.category)
+        repo.mark_published(offer.id, "wppconnect", offer.category)
+        published = True
+    return {
+        "ok": True,
+        "offer_id": offer.id,
+        "published": published,
+        "message": format_offer(offer),
+    }
+
+
 def _loot_database_path() -> Path:
     return Path(os.getenv("LOOT_DATABASE", "loot_ofertas.db"))
+
+
+def _capture_url(url: str) -> Offer:
+    host = (urllib.parse.urlsplit(url).hostname or "").casefold()
+    if "magazineluiza.com.br" in host or "magazinevoce.com.br" in host:
+        return capture_magalu(url).offer
+    if "mercadolivre.com" in host or "mercadolibre.com" in host:
+        try:
+            return capture_mercado_livre_api(url).offer
+        except CaptureError:
+            return capture_mercado_livre(url).offer
+    return capture_generic_product(url)
+
+
+def _editable_offer(offer: Offer) -> dict[str, Any]:
+    return {
+        "url": offer.source_url or offer.affiliate_url,
+        "affiliate_url": offer.affiliate_url,
+        "title": offer.title,
+        "price": offer.price,
+        "original_price": offer.original_price,
+        "store": offer.store,
+        "coupon": offer.coupon,
+        "category": offer.category or category_for(offer),
+        "image_url": offer.image_url,
+    }
 
 
 def _rows(connection: sqlite3.Connection, query: str, params: tuple = ()) -> list[dict[str, Any]]:
