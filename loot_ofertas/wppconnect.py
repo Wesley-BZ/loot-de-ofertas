@@ -8,7 +8,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .formatting import format_offer
+from .formatting import compact_offer_url, format_offer
 from .models import Offer
 
 
@@ -79,10 +79,53 @@ class WppConnectClient:
 
     def send_offer(self, group_id: str, offer: Offer, image_mode: str = "link-preview") -> dict:
         message = format_offer(offer)
-        if offer.image_url and image_mode.casefold() == "link-preview":
-            message = f"{offer.image_url}\n\n{message}"
+        mode = image_mode.casefold()
+        if mode == "link-preview":
+            try:
+                return self._request(
+                    "POST",
+                    "send-link-preview",
+                    {
+                        "phone": group_id,
+                        "isGroup": True,
+                        "url": compact_offer_url(offer),
+                        "caption": message,
+                    },
+                )
+            except WppConnectError:
+                if offer.image_url:
+                    return self._send_image(group_id, offer.image_url, message)
+                raise
+        if mode == "upload" and offer.image_url:
+            return self._send_image(group_id, offer.image_url, message)
         return self._request(
             "POST", "send-message", {"phone": group_id, "isGroup": True, "message": message}
+        )
+
+    def _send_image(self, group_id: str, image_url: str, caption: str) -> dict:
+        request = urllib.request.Request(
+            image_url,
+            headers={"User-Agent": "Mozilla/5.0", "Accept": "image/*"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=25) as response:
+                content_type = response.headers.get_content_type()
+                data = response.read(8_000_001)
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as error:
+            raise WppConnectError(f"Não foi possível baixar a imagem do produto: {error}") from error
+        if not content_type.startswith("image/") or len(data) > 8_000_000:
+            raise WppConnectError("A imagem do produto é inválida ou excede 8 MB")
+        extension = content_type.split("/", 1)[1].split("+", 1)[0].replace("jpeg", "jpg")
+        return self._request(
+            "POST",
+            "send-image",
+            {
+                "phone": group_id,
+                "isGroup": True,
+                "filename": f"oferta.{extension}",
+                "caption": caption,
+                "base64": base64.b64encode(data).decode("ascii"),
+            },
         )
 
 

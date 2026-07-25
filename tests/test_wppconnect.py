@@ -44,6 +44,19 @@ def test_send_offer_posts_group_message():
     assert result["status"] == "success"
 
 
+def test_send_offer_requests_native_link_preview():
+    client = WppConnectClient("http://localhost:21465", "loot", "secret")
+    offer = Offer(title="Mouse", affiliate_url="https://loja/item", price=99, store="Loja")
+    with patch("urllib.request.urlopen", return_value=FakeResponse({"status": "success"})) as open_mock:
+        result = client.send_offer("123@g.us", offer)
+    request = open_mock.call_args.args[0]
+    payload = json.loads(request.data)
+    assert request.full_url.endswith("/api/loot/send-link-preview")
+    assert payload["url"] == "https://loja/item"
+    assert payload["caption"].endswith("https://loja/item")
+    assert result["status"] == "success"
+
+
 def test_save_qr_code(tmp_path):
     png = b"\x89PNG\r\n\x1a\n"
     response = {"response": {"qrcode": "data:image/png;base64," + base64.b64encode(png).decode()}}
