@@ -25,6 +25,15 @@ class ScoringTests(unittest.TestCase):
 
         self.assertEqual(calculate_score(offer) - calculate_score(other), 12)
 
+    def test_community_signal_adds_capped_bonus(self):
+        ordinary = Offer("Mouse Gamer", "https://loja/item", 100, "outra")
+        popular = Offer(
+            "Mouse Gamer", "https://loja/item2", 100, "outra",
+            discovery_source="pelando", community_score=100,
+        )
+
+        self.assertEqual(15, calculate_score(popular) - calculate_score(ordinary))
+
 
 if __name__ == "__main__":
     unittest.main()

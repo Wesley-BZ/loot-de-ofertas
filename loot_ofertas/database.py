@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS offers (
     review_count INTEGER,
     sold_count INTEGER,
     shipping_price REAL,
+    discovery_source TEXT,
+    community_score REAL NOT NULL DEFAULT 0,
     available INTEGER NOT NULL DEFAULT 1,
     last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -94,6 +96,8 @@ MIGRATION_COLUMNS: dict[str, str] = {
     "review_count": "INTEGER",
     "sold_count": "INTEGER",
     "shipping_price": "REAL",
+    "discovery_source": "TEXT",
+    "community_score": "REAL NOT NULL DEFAULT 0",
     "available": "INTEGER NOT NULL DEFAULT 1",
     "last_seen_at": "TEXT",
 }
@@ -186,7 +190,8 @@ class OfferRepository:
                 offer.commission_percent, offer.store, offer.coupon, offer.image_url,
                 offer.category, offer.score, offer.product_key, source_url, offer.seller_name,
                 offer.seller_rating, offer.review_count, offer.sold_count,
-                offer.shipping_price, int(offer.available),
+                offer.shipping_price, offer.discovery_source, offer.community_score,
+                int(offer.available),
             )
             if existing:
                 offer_id = int(existing["id"])
@@ -195,6 +200,7 @@ class OfferRepository:
                         title=?, affiliate_url=?, price=?, original_price=?, commission_percent=?,
                         store=?, coupon=?, image_url=?, category=?, score=?, product_key=?, source_url=?,
                         seller_name=?, seller_rating=?, review_count=?, sold_count=?, shipping_price=?,
+                        discovery_source=?, community_score=?,
                         available=?, status='ready', last_seen_at=CURRENT_TIMESTAMP
                        WHERE id=?""",
                     (*values, offer_id),
@@ -205,8 +211,9 @@ class OfferRepository:
                         fingerprint, title, affiliate_url, price, original_price,
                         commission_percent, store, coupon, image_url, category, score,
                         product_key, source_url, seller_name, seller_rating, review_count,
-                        sold_count, shipping_price, available, last_seen_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        sold_count, shipping_price, discovery_source, community_score,
+                        available, last_seen_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     RETURNING id""",
                     (fingerprint, *values),
                 )

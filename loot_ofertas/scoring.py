@@ -15,6 +15,12 @@ GAMING_TERMS = {
     "switch": 14,
     "steam deck": 20,
     "placa de video": 20,
+    "placa mae": 14,
+    "processador": 14,
+    "ryzen": 14,
+    "intel core": 12,
+    "ddr4": 10,
+    "ddr5": 12,
     "geforce": 18,
     "radeon": 18,
     "monitor": 12,
@@ -41,6 +47,7 @@ def calculate_score(offer: Offer) -> float:
     discount = min(offer.discount_percent, 60) * 0.9
     commission = min(offer.commission_percent or 0, 15) * 0.6
     coupon_bonus = 5 if offer.coupon else 0
+    community_bonus = min(max(offer.community_score, 0), 100) * 0.15
     affiliate_stores = {
         value.strip().casefold()
         for value in os.getenv("LOOT_AFFILIATE_STORES", "magalu,shopee,aliexpress").split(",")
@@ -57,4 +64,7 @@ def calculate_score(offer: Offer) -> float:
         )
     )
     affiliate_bonus = float(os.getenv("LOOT_AFFILIATE_BONUS", "12")) if has_affiliate_link else 0
-    return round(relevance + discount + commission + coupon_bonus + affiliate_bonus, 2)
+    return round(
+        relevance + discount + commission + coupon_bonus + affiliate_bonus + community_bonus,
+        2,
+    )

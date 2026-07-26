@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import html
+import math
 import re
 import urllib.error
 import urllib.parse
@@ -26,6 +28,7 @@ class DealCandidate:
     external_id: str
     original_price: float | None = None
     coupon: str | None = None
+    community_score: float = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +46,7 @@ STORE_ALIASES = {
     "mercado livre": "mercadolivre",
     "mercadolivre": "mercadolivre",
     "kabum": "kabum",
+    "kabum!": "kabum",
     "ka bu m": "kabum",
     "pichau": "pichau",
     "terabyte": "terabyte",
@@ -110,7 +114,7 @@ def discover_community_deals(limit: int = 60) -> CommunityDiscovery:
 
 
 def fetch_pelando(limit: int = 60) -> list[DealCandidate]:
-    query = urllib.parse.urlencode({"scenario": "Main-Feed", "limit": max(1, min(limit, 100))})
+    query = urllib.parse.urlencode({"scenario": "Main-Feed", "limit": max(1, min(limit, 30))})
     request = urllib.request.Request(
         f"{PELANDO_API}?{query}",
         headers={
@@ -192,6 +196,34 @@ def clean_product_url(url: str) -> str:
     )
 
 
+def resolve_promobit_url(candidate: DealCandidate) -> str | None:
+    """Extract the merchant destination without retaining Promobit's affiliate tracking."""
+    if candidate.source != "promobit" or not candidate.external_id.isdigit():
+        return None
+    request = urllib.request.Request(
+        f"{PROMOBIT_SITE}/Redirect/to/{candidate.external_id}/",
+        headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            page = response.read(300_000).decode(
+                response.headers.get_content_charset() or "utf-8", errors="replace"
+            )
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+        return None
+    urls = re.findall(r"https?://[^\"'<>\s]+", html.unescape(page))
+    for value in urls:
+        value = value.rstrip(");,.")
+        parsed = urllib.parse.urlsplit(value)
+        query = urllib.parse.parse_qs(parsed.query)
+        destinations = query.get("ued", []) + [value]
+        for destination in destinations:
+            direct = clean_product_url(urllib.parse.unquote(destination))
+            if trusted_product_url(direct, candidate.store):
+                return direct
+    return None
+
+
 def _pelando_candidate(row: Any) -> DealCandidate | None:
     if not isinstance(row, dict):
         return None
@@ -210,6 +242,7 @@ def _pelando_candidate(row: Any) -> DealCandidate | None:
         coupon=str(row.get("code") or "").strip() or None,
         store=store, url=clean_product_url(url), source="pelando",
         external_id=str(row.get("id") or row.get("slug") or url),
+        community_score=_pelando_score(row),
     )
 
 
@@ -225,7 +258,30 @@ def _promobit_candidate(row: dict[str, Any]) -> DealCandidate | None:
         store=canonical_store(str(row.get("storeName") or "")),
         url=f"{PROMOBIT_SITE}/oferta/{slug}", source="promobit",
         external_id=str(row.get("offerId") or slug),
+        community_score=_promobit_score(row),
     )
+
+
+def _pelando_score(row: dict[str, Any]) -> float:
+    temperature = _number(row.get("temperature")) or 0
+    comments = _number(row.get("commentCount")) or 0
+    views = _number((row.get("viewStats") or {}).get("count")) or 0
+    strength = temperature / 7 + comments * 1.5 + math.log10(views + 1) * 4
+    return round(min(100.0, strength), 1)
+
+
+def _promobit_score(row: dict[str, Any]) -> float:
+    ratings = row.get("ratings") or {}
+    likes = _number(row.get("offerLikes")) or 0
+    comments = _number(row.get("offerComments")) or 0
+    clicks = _number(row.get("offerClicks")) or 0
+    positive = (_number(ratings.get("great")) or 0) + (_number(ratings.get("amazing")) or 0)
+    strength = (
+        likes * 3 + comments * 2 + positive * 2
+        + math.log10(clicks + 1) * 8
+        + (20 if row.get("offerIsHighlight") else 0)
+    )
+    return round(min(100.0, strength), 1)
 
 
 def _number(value: Any) -> float | None:

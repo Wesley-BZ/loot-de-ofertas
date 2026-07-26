@@ -267,6 +267,7 @@ def dashboard_data() -> dict[str, Any]:
         offers = _rows(connection, """
             SELECT o.id, o.title, o.price, o.original_price, o.store, o.coupon, o.category,
                    o.score, o.status, o.available, o.affiliate_url, o.image_url, o.last_seen_at,
+                   o.discovery_source, o.community_score,
                    a.label assessment, a.score assessment_score, a.confidence, a.competitor_count, a.market_median,
                    a.market_savings_percent, a.reasons
             FROM offers o
@@ -276,7 +277,8 @@ def dashboard_data() -> dict[str, Any]:
             ORDER BY o.last_seen_at DESC, o.score DESC LIMIT 100
         """) if _has_table(connection, "deal_assessments") else _rows(connection, """
             SELECT id, title, price, original_price, store, coupon, category, score, status,
-                   available, affiliate_url, image_url, last_seen_at
+                   available, affiliate_url, image_url, last_seen_at,
+                   discovery_source, community_score
             FROM offers ORDER BY last_seen_at DESC, score DESC LIMIT 100
         """)
         publications = _rows(connection, """

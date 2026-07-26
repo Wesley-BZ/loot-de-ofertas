@@ -24,6 +24,8 @@ class Offer:
     review_count: int | None = None
     sold_count: int | None = None
     shipping_price: float | None = None
+    discovery_source: str | None = None
+    community_score: float = 0
     available: bool = True
     status: str = "ready"
 

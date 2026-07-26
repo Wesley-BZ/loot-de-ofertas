@@ -18,11 +18,11 @@ class MarketingTests(unittest.TestCase):
         first = headline_for(offer)
         self.assertNotEqual(first, headline_for(offer, {first}))
 
-    def test_catalog_has_100_products_and_100_unique_phrases_each(self):
+    def test_catalog_has_100_products_and_many_unique_phrases_each(self):
         self.assertEqual(100, len(PRODUCT_PROFILES))
         for profile in PRODUCT_PROFILES:
-            self.assertEqual(100, len(PHRASES[profile.key]), profile.key)
-            self.assertEqual(100, len(set(PHRASES[profile.key])), profile.key)
+            self.assertGreaterEqual(len(PHRASES[profile.key]), 800, profile.key)
+            self.assertEqual(len(PHRASES[profile.key]), len(set(PHRASES[profile.key])), profile.key)
 
     def test_headline_avoids_last_ten_for_same_product_type(self):
         offer = Offer("Mouse Gamer sem fio", "https://example.com/mouse", 88.79, "magalu")

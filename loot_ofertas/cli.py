@@ -19,6 +19,7 @@ from .deal_sources import (
     DealCandidate,
     clean_product_url,
     discover_community_deals,
+    resolve_promobit_url,
     trusted_product_url,
 )
 from .formatting import format_offer
@@ -286,14 +287,26 @@ def main(argv: list[str] | None = None) -> int:
                 title=candidate.title, affiliate_url=candidate.url,
                 source_url=candidate.url, price=candidate.price,
                 original_price=candidate.original_price, coupon=candidate.coupon,
-                store=candidate.store,
+                store=candidate.store, discovery_source=candidate.source,
+                community_score=candidate.community_score,
             )
             if not args.include_all and category_for(preview) == "generic":
                 irrelevant += 1
                 continue
-            if not trusted_product_url(candidate.url, candidate.store):
+            candidate_url = candidate.url
+            if not trusted_product_url(candidate_url, candidate.store):
+                candidate_url = resolve_promobit_url(candidate) or candidate_url
+            if not trusted_product_url(candidate_url, candidate.store):
                 unresolved += 1
                 continue
+            if candidate_url != candidate.url:
+                candidate = DealCandidate(
+                    title=candidate.title, price=candidate.price, store=candidate.store,
+                    url=candidate_url, source=candidate.source,
+                    external_id=candidate.external_id,
+                    original_price=candidate.original_price, coupon=candidate.coupon,
+                    community_score=candidate.community_score,
+                )
             try:
                 offer = _offer_from_community_candidate(candidate)
             except CaptureError as error:
@@ -638,6 +651,8 @@ def _offer_from_community_candidate(candidate: DealCandidate) -> Offer:
     # and old-price fields that product pages frequently omit.
     offer.store = candidate.store
     offer.source_url = url
+    offer.discovery_source = candidate.source
+    offer.community_score = max(offer.community_score, candidate.community_score)
     offer.affiliate_url = magalu_affiliate_url(url) if candidate.store == "magalu" else url
     offer.coupon = offer.coupon or candidate.coupon
     if not offer.original_price and candidate.original_price and candidate.original_price > offer.price:
@@ -670,6 +685,8 @@ def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:
         print(f"Atualização da fonte falhou: {exc}. Mantendo a última cotação.")
         return offer
     refreshed.category = category_for(refreshed)
+    refreshed.discovery_source = offer.discovery_source
+    refreshed.community_score = offer.community_score
     _apply_coupon(refreshed)
     previous_id = offer.id
     refreshed.id = repo.add(refreshed)

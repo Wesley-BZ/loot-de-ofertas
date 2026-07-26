@@ -1,12 +1,32 @@
 import unittest
+from email.message import Message
+from unittest.mock import patch
 
 from loot_ofertas.deal_sources import (
+    DealCandidate,
     _pelando_candidate,
     _promobit_candidate,
     canonical_store,
     clean_product_url,
+    resolve_promobit_url,
     trusted_product_url,
 )
+
+
+class FakePage:
+    def __init__(self, text):
+        self.data = text.encode()
+        self.headers = Message()
+        self.headers["Content-Type"] = "text/html; charset=utf-8"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def read(self, limit=-1):
+        return self.data[:limit]
 
 
 class DealSourcesTests(unittest.TestCase):
@@ -16,6 +36,9 @@ class DealSourcesTests(unittest.TestCase):
             "title": "Monitor Gamer 144 Hz",
             "price": 800,
             "discountPercentage": 20,
+            "temperature": 250,
+            "commentCount": 8,
+            "viewStats": {"count": 1200},
             "sourceUrl": "https://www.magazineluiza.com.br/monitor/p/abc123/?utm_source=pelando",
             "code": "GAMER10",
             "store": {"name": "Magazine Luiza"},
@@ -26,6 +49,7 @@ class DealSourcesTests(unittest.TestCase):
         self.assertEqual(1000.0, candidate.original_price)
         self.assertEqual("GAMER10", candidate.coupon)
         self.assertNotIn("utm_source", candidate.url)
+        self.assertGreater(candidate.community_score, 0)
 
     def test_rejects_coupon_only_pelando_entry(self):
         self.assertIsNone(_pelando_candidate({
@@ -61,6 +85,22 @@ class DealSourcesTests(unittest.TestCase):
     def test_store_aliases(self):
         self.assertEqual("mercadolivre", canonical_store("Mercado Livre"))
         self.assertEqual("magalu", canonical_store("Magazine Você"))
+        self.assertEqual("kabum", canonical_store("KaBuM!"))
+
+    @patch("urllib.request.urlopen")
+    def test_resolves_promobit_ued_without_affiliate_tracking(self, urlopen):
+        urlopen.return_value = FakePage(
+            '<a href="https://awin.example/click?ued='
+            'https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F123%2Fssd%3Futm_source%3Dx">'
+        )
+        candidate = DealCandidate(
+            "SSD Gamer", 299, "kabum", "https://www.promobit.com.br/oferta/ssd",
+            "promobit", "123", community_score=80,
+        )
+
+        resolved = resolve_promobit_url(candidate)
+
+        self.assertEqual("https://www.kabum.com.br/produto/123/ssd", resolved)
 
 
 if __name__ == "__main__":
