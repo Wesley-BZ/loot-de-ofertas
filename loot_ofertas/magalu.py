@@ -330,7 +330,10 @@ def magalu_affiliate_url(url: str) -> str:
     parsed = urllib.parse.urlsplit(url)
     promoter_id = os.getenv("MAGALU_PROMOTER_ID", "").strip()
     partner_id = os.getenv("MAGALU_PARTNER_ID", "3440").strip()
-    if promoter_id and "magazineluiza.com.br" in (parsed.hostname or ""):
+    host = (parsed.hostname or "").casefold()
+    if promoter_id and any(
+        domain in host for domain in ("magazineluiza.com.br", "magazinevoce.com.br")
+    ):
         query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         query.update({
             "partner_id": [partner_id],
@@ -343,7 +346,7 @@ def magalu_affiliate_url(url: str) -> str:
             parsed.scheme, parsed.netloc, parsed.path,
             urllib.parse.urlencode(query, doseq=True), parsed.fragment,
         ))
-    if "magazinevoce.com.br" in (parsed.hostname or ""):
+    if "magazinevoce.com.br" in host:
         return url
     if not store_url or "sualoja" in store_url.casefold():
         return url
