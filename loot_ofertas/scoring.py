@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unicodedata
 
 from .models import Offer
@@ -40,5 +41,20 @@ def calculate_score(offer: Offer) -> float:
     discount = min(offer.discount_percent, 60) * 0.9
     commission = min(offer.commission_percent or 0, 15) * 0.6
     coupon_bonus = 5 if offer.coupon else 0
-    return round(relevance + discount + commission + coupon_bonus, 2)
-
+    affiliate_stores = {
+        value.strip().casefold()
+        for value in os.getenv("LOOT_AFFILIATE_STORES", "magalu,shopee,aliexpress").split(",")
+        if value.strip()
+    }
+    has_affiliate_link = (
+        offer.store.casefold() in affiliate_stores
+        and (
+            bool(offer.source_url and offer.affiliate_url != offer.source_url)
+            or (
+                offer.store.casefold() == "magalu"
+                and bool(os.getenv("MAGALU_PROMOTER_ID", "").strip())
+            )
+        )
+    )
+    affiliate_bonus = float(os.getenv("LOOT_AFFILIATE_BONUS", "12")) if has_affiliate_link else 0
+    return round(relevance + discount + commission + coupon_bonus + affiliate_bonus, 2)

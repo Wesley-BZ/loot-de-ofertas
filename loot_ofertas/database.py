@@ -214,6 +214,17 @@ class OfferRepository:
             self._record_price(connection, offer_id, offer)
             return offer_id
 
+    def recalculate_scores(self) -> int:
+        """Refresh ranking when affiliate bonuses or scoring rules change."""
+        with self.connection() as connection:
+            rows = connection.execute("SELECT * FROM offers").fetchall()
+            updates = [
+                (calculate_score(self._offer_from_row(row)), int(row["id"]))
+                for row in rows
+            ]
+            connection.executemany("UPDATE offers SET score=? WHERE id=?", updates)
+        return len(updates)
+
     def _record_price(self, connection: sqlite3.Connection, offer_id: int, offer: Offer) -> None:
         last = connection.execute(
             """SELECT price, original_price, shipping_price, available, observed_at

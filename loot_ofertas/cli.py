@@ -40,6 +40,7 @@ from .wppconnect import WppConnectClient, WppConnectError, group_rows, save_qr_c
 def repository() -> OfferRepository:
     repo = OfferRepository(os.getenv("LOOT_DATABASE", "loot_ofertas.db"))
     repo.initialize()
+    repo.recalculate_scores()
     return repo
 
 
@@ -187,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
         approved_count = 0
         rejected = 0
         irrelevant = 0
+        super_candidates: list[tuple[float, Offer]] = []
         for offer in result.offers:
             if not args.include_all and not relevant_magalu_offer(offer):
                 irrelevant += 1
@@ -195,6 +197,9 @@ def main(argv: list[str] | None = None) -> int:
             _apply_coupon(offer)
             offer.id = repo.add(offer)
             assessment = _record_and_compare(repo, offer, use_google=args.google)
+            complete_score = offer.score + max(0.0, assessment.score)
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+                super_candidates.append((complete_score, offer))
             approved = assessment.label in {"imperdivel", "excelente", "promocao", "promocao_loja"}
             if offer.discount_percent < args.min_discount and not approved:
                 rejected += 1
@@ -205,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
                 save_message(format_offer(offer), offer.id)
                 approved_count += 1
             saved += 1
+        if super_candidates:
+            _publish_super_offer(repo, max(super_candidates, key=lambda item: item[0])[1])
         print(
             f"Descoberta concluída: {len(result.offers)} produto(s) lido(s), "
             f"{saved} candidato(s) salvo(s), {approved_count} promoção(ões) aprovada(s), "
@@ -218,10 +225,14 @@ def main(argv: list[str] | None = None) -> int:
         saved = 0
         approved_count = 0
         waiting = 0
+        super_candidates: list[tuple[float, Offer]] = []
         for offer in result.offers:
             offer.category = category_for(offer)
             offer.id = repo.add(offer)
             assessment = _record_and_compare(repo, offer, use_google=args.google)
+            complete_score = offer.score + max(0.0, assessment.score)
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+                super_candidates.append((complete_score, offer))
             approved = assessment.label in {"imperdivel", "excelente", "promocao"}
             if approved:
                 offer.headline = headline_for(offer, repo.recent_headlines(offer.category, 10))
@@ -230,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
             elif offer.discount_percent < args.min_discount:
                 waiting += 1
             saved += 1
+        if super_candidates:
+            _publish_super_offer(repo, max(super_candidates, key=lambda item: item[0])[1])
         print(
             f"Mercado Livre: {len(result.offers)} mais vendido(s) lido(s), "
             f"{saved} candidato(s) salvo(s), {approved_count} promoção(ões) aprovada(s), "
@@ -456,6 +469,35 @@ def rank_offers_for_publication(
         ),
         reverse=True,
     )
+
+
+def _publish_super_offer(repo: OfferRepository, offer: Offer) -> bool:
+    """Publish one exceptional newly collected deal without waiting for the regular interval."""
+    policy = PublicationPolicy.from_env()
+    if not policy.is_active_hour():
+        print(f"Superpromoção {offer.id} salva; envio aguardando a janela ativa.")
+        return False
+    eligible_ids = {
+        candidate.id
+        for candidate in repo.eligible_ready("wppconnect", policy, 1000, min_score=-999)
+    }
+    if offer.id not in eligible_ids:
+        return False
+    try:
+        client = _wppconnect_client()
+        group_id = os.getenv("WPP_GROUP_ID") or client.find_group(
+            os.getenv("WHATSAPP_GROUP_NAME", "Loot de Ofertas Gamers")
+        )
+        phrase_category = category_for(offer)
+        offer.headline = headline_for(offer, repo.recent_headlines(phrase_category, 10))
+        client.send_offer(group_id, offer, os.getenv("WHATSAPP_IMAGE_MODE", "link-preview"))
+        repo.record_headline(offer, phrase_category)
+        repo.mark_published(offer.id, "wppconnect", phrase_category)
+        print(f"Superpromoção {offer.id} publicada imediatamente (score alto).")
+        return True
+    except WppConnectError as error:
+        print(f"Superpromoção {offer.id} ficou na fila: {error}", file=sys.stderr)
+        return False
 
 
 def _wppconnect_client() -> WppConnectClient:

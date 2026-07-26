@@ -16,7 +16,15 @@ class ScoringTests(unittest.TestCase):
         offer = Offer(title="Panela", affiliate_url="https://example.com/b", price=100, store="magalu")
         self.assertLess(calculate_score(offer), 0)
 
+    def test_affiliate_store_receives_priority_bonus(self):
+        offer = Offer(
+            title="Mouse Gamer", affiliate_url="https://s.shopee.test/afiliado",
+            source_url="https://shopee.test/item", price=100, store="shopee",
+        )
+        other = Offer(title="Mouse Gamer", affiliate_url="https://outra.test/item", price=100, store="outra")
+
+        self.assertEqual(calculate_score(offer) - calculate_score(other), 12)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -155,6 +155,7 @@ Os itens são lidos pela API oficial, deduplicados e enviados ao mesmo históric
 comparador e filtro de publicação da Magalu. O monitor do Windows executa as duas
 descobertas automaticamente.
 
+
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução e sempre escolhe o
@@ -177,7 +178,10 @@ LOOT_MIN_SCORE=-999
 LOOT_DAILY_LIMIT=60
 LOOT_CATEGORY_DAILY_LIMIT=60
 LOOT_START_HOUR=9
-LOOT_END_HOUR=22
+LOOT_END_HOUR=23
+LOOT_AFFILIATE_STORES=magalu,shopee,aliexpress
+LOOT_AFFILIATE_BONUS=12
+LOOT_SUPER_SCORE=85
 LOOT_REPEAT_COOLDOWN_DAYS=7
 LOOT_REPEAT_PRICE_DROP_PERCENT=10
 LOOT_TIMEZONE=America/Sao_Paulo
