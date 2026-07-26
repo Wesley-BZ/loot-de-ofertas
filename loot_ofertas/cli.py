@@ -491,6 +491,17 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
     for index, offer in enumerate(offers):
+        try:
+            offer = _refresh_offer(repo, offer, strict=True)
+        except CaptureError as exc:
+            print(
+                f"Oferta {offer.id} não publicada: não foi possível confirmar preço e estoque ({exc}).",
+                file=sys.stderr,
+            )
+            continue
+        if not offer.available:
+            print(f"Oferta {offer.id} não publicada: produto indisponível.", file=sys.stderr)
+            continue
         assessment = _record_and_compare(repo, offer, use_google=False)
         if not offer.coupon and offer.store.casefold() == "magalu":
             coupons_url = os.getenv("MAGALU_COUPONS_URL", "")
@@ -565,6 +576,10 @@ def _publish_super_offer(repo: OfferRepository, offer: Offer) -> bool:
     if offer.id not in eligible_ids:
         return False
     try:
+        offer = _refresh_offer(repo, offer, strict=True)
+        if not offer.available:
+            print(f"Superpromoção {offer.id} não publicada: produto indisponível.")
+            return False
         client = _wppconnect_client()
         group_id = os.getenv("WPP_GROUP_ID") or client.find_group(
             os.getenv("WHATSAPP_GROUP_NAME", "Loot de Ofertas Gamers")
@@ -576,7 +591,7 @@ def _publish_super_offer(repo: OfferRepository, offer: Offer) -> bool:
         repo.mark_published(offer.id, "wppconnect", phrase_category)
         print(f"Superpromoção {offer.id} publicada imediatamente (score alto).")
         return True
-    except WppConnectError as error:
+    except (CaptureError, WppConnectError) as error:
         print(f"Superpromoção {offer.id} ficou na fila: {error}", file=sys.stderr)
         return False
 
@@ -660,7 +675,7 @@ def _offer_from_community_candidate(candidate: DealCandidate) -> Offer:
     return offer
 
 
-def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:
+def _refresh_offer(repo: OfferRepository, offer: Offer, strict: bool = False) -> Offer:
     url = offer.source_url or offer.affiliate_url
     host = (urllib.parse.urlsplit(url).hostname or "").casefold()
     try:
@@ -679,9 +694,10 @@ def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:
                     url, session_dir=os.getenv("MAGALU_SESSION_DIR", ".magalu-session")
                 ).offer
         else:
-            print("Fonte sem atualização automática; mantendo a última cotação.")
-            return offer
+            refreshed = capture_generic_product(url)
     except CaptureError as exc:
+        if strict:
+            raise
         print(f"Atualização da fonte falhou: {exc}. Mantendo a última cotação.")
         return offer
     refreshed.category = category_for(refreshed)
