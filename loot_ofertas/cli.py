@@ -101,17 +101,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     listing = sub.add_parser("list", help="Lista as melhores ofertas prontas")
     listing.add_argument("--limit", type=int, default=10)
-    listing.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "25")))
+    listing.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "-999")))
 
     status = sub.add_parser("queue-status", help="Mostra limites e próximas ofertas elegíveis")
     status.add_argument("--channel", choices=("telegram", "whatsapp-web", "wppconnect"), default="wppconnect")
     status.add_argument("--limit", type=int, default=5)
-    status.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "25")))
+    status.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "-999")))
 
     publish = sub.add_parser("publish", help="Publica ou prepara a melhor oferta")
     publish.add_argument("channel", choices=("telegram", "whatsapp", "whatsapp-web", "wppconnect"))
     publish.add_argument("--limit", type=int, default=1)
-    publish.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "25")))
+    publish.add_argument("--min-score", type=float, default=float(os.getenv("LOOT_MIN_SCORE", "-999")))
     publish.add_argument("--dry-run", action="store_true")
     publish.add_argument("--force", action="store_true", help="Ignora limites para um teste manual")
     publish.add_argument("--offer-id", type=int, help="Seleciona uma oferta específica")
