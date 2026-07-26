@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .identity import product_identity
+from .identity import product_family_identity, product_identity
 from .models import Offer
 from .scheduling import (
     PublicationDecision,
@@ -343,7 +343,10 @@ class OfferRepository:
         )
         with self.connection() as connection:
             publications = connection.execute(
-                "SELECT * FROM publication_history WHERE channel=? ORDER BY id DESC",
+                """SELECT p.*, o.title
+                   FROM publication_history p
+                   LEFT JOIN offers o ON o.id=p.offer_id
+                   WHERE p.channel=? ORDER BY p.id DESC""",
                 (normalized_channel,),
             ).fetchall()
         today = [row for row in publications if day_start <= parse_database_datetime(row["published_at"]) < day_end]
@@ -358,7 +361,19 @@ class OfferRepository:
             category = category_for(offer)
             if selected_categories.get(category, 0) >= policy.category_daily_limit:
                 continue
-            previous = next((row for row in publications if row["product_key"] == offer.product_key), None)
+            family_key = product_family_identity(offer.title)
+            previous = next(
+                (
+                    row for row in publications
+                    if row["product_key"] == offer.product_key
+                    or (
+                        family_key
+                        and row["title"]
+                        and product_family_identity(row["title"]) == family_key
+                    )
+                ),
+                None,
+            )
             if previous and parse_database_datetime(previous["published_at"]) >= cooldown_start:
                 if parse_database_datetime(previous["published_at"]) >= absolute_cooldown_start:
                     continue

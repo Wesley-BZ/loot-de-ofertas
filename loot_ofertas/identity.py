@@ -49,3 +49,31 @@ def product_identity(store: str, url: str, title: str = "") -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", slug).strip("-")[:80]
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
     return f"{store.casefold().strip()}:{slug or digest}:{digest}"
+
+
+def product_family_identity(title: str) -> str | None:
+    """Group phone color/seller variants while preserving model and memory."""
+    normalized = unicodedata.normalize("NFKD", title.casefold())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    model_patterns = (
+        ("samsung-galaxy", r"\bgalaxy\s+([asmz]\d{2,3}(?:\s*(?:fe|ultra|plus))?)\b"),
+        ("iphone", r"\biphone\s+(\d{1,2}(?:\s*(?:pro|max|plus|mini))?)\b"),
+        ("motorola-moto", r"\bmoto\s+([a-z]\d{1,3}(?:\s*(?:power|play|plus|ultra))?)\b"),
+        ("xiaomi-redmi", r"\bredmi\s+([a-z0-9]+(?:\s*(?:pro|plus|ultra))?)\b"),
+        ("xiaomi-poco", r"\bpoco\s+([a-z0-9]+(?:\s*(?:pro|plus|ultra))?)\b"),
+    )
+    family = model = None
+    for candidate_family, pattern in model_patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            family, model = candidate_family, re.sub(r"\s+", "-", match.group(1).strip())
+            break
+    if not family or not model:
+        return None
+    storage_match = re.search(r"\b(64|128|256|512|1024)\s*gb\b", normalized)
+    ram_match = re.search(r"\b(?:ram\s*)?(\d{1,2})\s*gb\s*ram\b", normalized)
+    network = "5g" if re.search(r"\b5g\b", normalized) else "4g"
+    storage = f"{storage_match.group(1)}gb" if storage_match else "storage-unknown"
+    ram = f"{ram_match.group(1)}gb" if ram_match else "ram-unknown"
+    return f"phone:{family}:{model}:{storage}:{ram}:{network}"

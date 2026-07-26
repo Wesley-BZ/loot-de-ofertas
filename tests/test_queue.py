@@ -103,6 +103,25 @@ class QueueTests(unittest.TestCase):
         self.add_mouse(50)
         self.assertEqual([], self.repo.eligible_ready("wppconnect", self.policy, now=self.now))
 
+    def test_phone_color_variants_share_the_same_cooldown(self):
+        black = Offer(
+            "Celular Samsung Galaxy A07 256GB 8GB RAM Preto",
+            "https://mercadolivre.com.br/a07-preto/p/MLB54961556",
+            850, "mercadolivre",
+        )
+        black_id = self.repo.add(black)
+        self.repo.mark_published(black_id, "wppconnect", "smartphone")
+        with self.repo.connection() as connection:
+            stamp = (self.now - timedelta(hours=4)).astimezone(timezone.utc).isoformat()
+            connection.execute("UPDATE publication_history SET published_at=?", (stamp,))
+        green = Offer(
+            "Celular Samsung Galaxy A07 256GB 8GB RAM Verde",
+            "https://mercadolivre.com.br/a07-verde/p/MLB54963045",
+            972, "mercadolivre",
+        )
+        self.repo.add(green)
+        self.assertEqual([], self.repo.eligible_ready("wppconnect", self.policy, now=self.now))
+
     def test_outside_active_hours_is_blocked(self):
         early = self.now.replace(hour=8)
         self.assertFalse(self.repo.publication_decision("wppconnect", self.policy, early).allowed)
