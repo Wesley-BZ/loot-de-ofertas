@@ -46,6 +46,24 @@ class QueueTests(unittest.TestCase):
             self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM offers").fetchone()[0])
             self.assertEqual(2, connection.execute("SELECT COUNT(*) FROM price_history").fetchone()[0])
 
+    def test_same_product_merges_community_sources_and_keeps_strongest_signal(self):
+        first = Offer(
+            "Processador Ryzen", "https://kabum.com.br/produto/426262/processador",
+            1900, "kabum", coupon="PELANDO10",
+            discovery_source="pelando", community_score=90,
+        )
+        second = Offer(
+            "AMD Ryzen 7800X3D", "https://www.kabum.com.br/produto/426262/outro-slug",
+            1899, "kabum", discovery_source="promobit", community_score=40,
+        )
+        first_id = self.repo.add(first)
+        second_id = self.repo.add(second)
+        merged = self.repo.get(second_id)
+        self.assertEqual(first_id, second_id)
+        self.assertEqual("pelando + promobit", merged.discovery_source)
+        self.assertEqual(90, merged.community_score)
+        self.assertEqual("PELANDO10", merged.coupon)
+
     def test_publication_gate_blocks_twenty_minute_interval(self):
         offer_id = self.add_mouse()
         self.repo.mark_published(offer_id, "wppconnect", "mouse_gamer")
@@ -86,6 +104,14 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(
             "amazon:B0ABC12345",
             product_identity("amazon", "https://amazon.com.br/dp/B0ABC12345?ref_=abc"),
+        )
+        self.assertEqual(
+            "kabum:426262",
+            product_identity("kabum", "https://www.kabum.com.br/produto/426262/slug-a"),
+        )
+        self.assertEqual(
+            "magalu:238306600",
+            product_identity("magalu", "https://www.magazinevoce.com.br/loja/notebook/p/238306600/in/nota/"),
         )
 
 

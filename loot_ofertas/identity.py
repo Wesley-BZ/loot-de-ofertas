@@ -29,6 +29,8 @@ def product_identity(store: str, url: str, title: str = "") -> str:
     patterns = (
         ("mercadolivre", r"\b(MLB-?\d+)\b"),
         ("amazon", r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)"),
+        ("magalu", r"/p/([a-z0-9]+)(?:[/?]|$)"),
+        ("kabum", r"/produto/(\d+)(?:[/?]|$)"),
         ("shopee", r"(?:-|/)(\d+)\.(\d+)(?:[/?]|$)"),
         ("aliexpress", r"/(?:item/)?(\d{8,})\.html"),
     )

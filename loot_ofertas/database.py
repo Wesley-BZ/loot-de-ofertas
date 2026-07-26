@@ -182,9 +182,27 @@ class OfferRepository:
         fingerprint = hashlib.sha256(offer.product_key.encode("utf-8")).hexdigest()
         with self.connection() as connection:
             existing = connection.execute(
-                "SELECT id, fingerprint FROM offers WHERE product_key=? ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM offers WHERE product_key=? ORDER BY id DESC LIMIT 1",
                 (offer.product_key,),
             ).fetchone()
+            if existing:
+                previous_source = (existing["discovery_source"] or "").strip()
+                current_source = (offer.discovery_source or "").strip()
+                sources = [
+                    value for value in (previous_source.split(" + ") + current_source.split(" + "))
+                    if value
+                ]
+                offer.discovery_source = " + ".join(dict.fromkeys(sources)) or None
+                offer.community_score = max(
+                    float(existing["community_score"] or 0), offer.community_score
+                )
+                offer.coupon = offer.coupon or existing["coupon"]
+                offer.image_url = offer.image_url or existing["image_url"]
+                old_prices = [
+                    float(value) for value in (existing["original_price"], offer.original_price)
+                    if value is not None and float(value) > offer.price
+                ]
+                offer.original_price = max(old_prices, default=None)
             values = (
                 offer.title, offer.affiliate_url, offer.price, offer.original_price,
                 offer.commission_percent, offer.store, offer.coupon, offer.image_url,
