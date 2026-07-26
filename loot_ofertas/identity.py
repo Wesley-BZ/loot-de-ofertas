@@ -26,6 +26,9 @@ def product_identity(store: str, url: str, title: str = "") -> str:
     normalized = normalize_url(url)
     host_path = urllib.parse.urlsplit(normalized)
     text = urllib.parse.unquote(f"{host_path.netloc}{host_path.path}?{host_path.query}")
+    catalog_match = re.search(r"/p/(MLB\d+)(?:[/?]|$)", text, re.IGNORECASE)
+    if catalog_match:
+        return f"mercadolivre:catalog:{catalog_match.group(1).upper()}"
     patterns = (
         ("mercadolivre", r"\b(MLB-?\d+)\b"),
         ("amazon", r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)"),

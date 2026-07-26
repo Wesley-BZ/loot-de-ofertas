@@ -14,6 +14,7 @@ class PublicationPolicy:
     start_hour: int = 9
     end_hour: int = 23
     repeat_cooldown_days: int = 7
+    absolute_repeat_cooldown_days: int = 3
     repeat_price_drop_percent: float = 10
     timezone_name: str = "America/Sao_Paulo"
 
@@ -26,6 +27,9 @@ class PublicationPolicy:
             start_hour=int(os.getenv("LOOT_START_HOUR", "9")),
             end_hour=int(os.getenv("LOOT_END_HOUR", "23")),
             repeat_cooldown_days=int(os.getenv("LOOT_REPEAT_COOLDOWN_DAYS", "7")),
+            absolute_repeat_cooldown_days=int(
+                os.getenv("LOOT_ABSOLUTE_REPEAT_COOLDOWN_DAYS", "3")
+            ),
             repeat_price_drop_percent=float(os.getenv("LOOT_REPEAT_PRICE_DROP_PERCENT", "10")),
             timezone_name=os.getenv("LOOT_TIMEZONE", "America/Sao_Paulo"),
         )

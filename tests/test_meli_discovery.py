@@ -32,4 +32,4 @@ def test_discovers_best_seller_using_official_product_api(api_get):
     assert result.offers[0].price == 649
     assert result.offers[0].original_price == 799
     assert result.offers[0].shipping_price == 0
-    assert result.offers[0].product_key == "mercadolivre:mlb7168599690"
+    assert result.offers[0].product_key == "mercadolivre:catalog:MLB43961384"

@@ -23,6 +23,7 @@ class QueueTests(unittest.TestCase):
             start_hour=9,
             end_hour=22,
             repeat_cooldown_days=7,
+            absolute_repeat_cooldown_days=3,
             repeat_price_drop_percent=10,
         )
         self.now = datetime(2026, 7, 22, 12, 0, tzinfo=timezone(timedelta(hours=-3)))
@@ -86,12 +87,21 @@ class QueueTests(unittest.TestCase):
         offer_id = self.add_mouse(100)
         self.repo.mark_published(offer_id, "wppconnect", "mouse_gamer")
         with self.repo.connection() as connection:
-            stamp = (self.now - timedelta(days=1)).astimezone(timezone.utc).isoformat()
+            stamp = (self.now - timedelta(days=4)).astimezone(timezone.utc).isoformat()
             connection.execute("UPDATE publication_history SET published_at=?", (stamp,))
         self.add_mouse(95)
         self.assertEqual([], self.repo.eligible_ready("wppconnect", self.policy, now=self.now))
         self.add_mouse(90)
         self.assertEqual(1, len(self.repo.eligible_ready("wppconnect", self.policy, now=self.now)))
+
+    def test_product_never_repeats_inside_absolute_three_day_window(self):
+        offer_id = self.add_mouse(100)
+        self.repo.mark_published(offer_id, "wppconnect", "mouse_gamer")
+        with self.repo.connection() as connection:
+            stamp = (self.now - timedelta(days=2)).astimezone(timezone.utc).isoformat()
+            connection.execute("UPDATE publication_history SET published_at=?", (stamp,))
+        self.add_mouse(50)
+        self.assertEqual([], self.repo.eligible_ready("wppconnect", self.policy, now=self.now))
 
     def test_outside_active_hours_is_blocked(self):
         early = self.now.replace(hour=8)
@@ -107,6 +117,14 @@ class QueueTests(unittest.TestCase):
             product_identity(
                 "mercado livre",
                 "https://www.mercadolivre.com.br/produto/up/MLBU3766913692?pdp_filters=item_id%3AMLB6208586170",
+            ),
+        )
+        self.assertEqual(
+            "mercadolivre:catalog:MLB54987753",
+            product_identity(
+                "mercadolivre",
+                "https://www.mercadolivre.com.br/galaxy-a17/p/MLB54987753"
+                "?pdp_filters=item_id%3AMLB4732041735&wid=MLB4732041735",
             ),
         )
         self.assertEqual(

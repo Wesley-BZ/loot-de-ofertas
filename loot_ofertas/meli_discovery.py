@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .capture import CaptureError, _first_price
+from .identity import product_identity
 from .meli import MeliError, api_get
 from .models import Offer
 
@@ -95,7 +96,7 @@ def _offer_from_product(product_id: str, category_name: str) -> Offer:
         title=title,
         affiliate_url=link,
         source_url=link,
-        product_key=f"mercadolivre:{item_id.casefold()}",
+        product_key=product_identity("mercadolivre", link, title),
         price=price,
         original_price=original if original and original > price else None,
         store="mercadolivre",

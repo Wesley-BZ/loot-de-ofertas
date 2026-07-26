@@ -148,6 +148,7 @@ class OfferRepository:
                     connection.execute(f"ALTER TABLE offers ADD COLUMN {name} {definition}")
             connection.executescript(SCHEMA)
             self._backfill_product_keys(connection)
+            self._canonicalize_mercado_livre_catalogs(connection)
             connection.execute(
                 """INSERT INTO publication_history(
                     offer_id, product_key, channel, category, price, headline, published_at
@@ -173,6 +174,26 @@ class OfferRepository:
                    last_seen_at=COALESCE(last_seen_at, created_at, CURRENT_TIMESTAMP)
                    WHERE id=?""",
                 (key, source_url, row["id"]),
+            )
+
+    def _canonicalize_mercado_livre_catalogs(self, connection: sqlite3.Connection) -> None:
+        """Merge seller listings that point to the same Mercado Livre catalog product."""
+        rows = connection.execute(
+            """SELECT id, store, affiliate_url, source_url, title, product_key
+               FROM offers WHERE lower(store) IN ('mercadolivre', 'mercado livre')"""
+        ).fetchall()
+        for row in rows:
+            key = product_identity(
+                row["store"], row["source_url"] or row["affiliate_url"], row["title"]
+            )
+            if not key.startswith("mercadolivre:catalog:") or key == row["product_key"]:
+                continue
+            connection.execute("UPDATE offers SET product_key=? WHERE id=?", (key, row["id"]))
+            connection.execute(
+                "UPDATE publication_history SET product_key=? WHERE offer_id=?", (key, row["id"])
+            )
+            connection.execute(
+                "UPDATE price_history SET product_key=? WHERE offer_id=?", (key, row["id"])
             )
 
     def add(self, offer: Offer) -> int:
@@ -317,6 +338,9 @@ class OfferRepository:
         local_now = policy.local_now(now)
         day_start, day_end = policy.local_day_bounds_utc(local_now)
         cooldown_start = local_now.astimezone(timezone.utc) - timedelta(days=policy.repeat_cooldown_days)
+        absolute_cooldown_start = local_now.astimezone(timezone.utc) - timedelta(
+            days=policy.absolute_repeat_cooldown_days
+        )
         with self.connection() as connection:
             publications = connection.execute(
                 "SELECT * FROM publication_history WHERE channel=? ORDER BY id DESC",
@@ -336,6 +360,8 @@ class OfferRepository:
                 continue
             previous = next((row for row in publications if row["product_key"] == offer.product_key), None)
             if previous and parse_database_datetime(previous["published_at"]) >= cooldown_start:
+                if parse_database_datetime(previous["published_at"]) >= absolute_cooldown_start:
+                    continue
                 required_price = float(previous["price"]) * (1 - policy.repeat_price_drop_percent / 100)
                 if offer.price > required_price:
                     continue

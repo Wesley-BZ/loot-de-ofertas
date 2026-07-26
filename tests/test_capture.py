@@ -117,7 +117,7 @@ class CaptureTests(unittest.TestCase):
 
         self.assertEqual("Monitor Gamer 24 polegadas", captured.offer.title)
         self.assertEqual(699.90, captured.offer.price)
-        self.assertEqual("mercadolivre:mlb123456", captured.offer.product_key)
+        self.assertEqual("mercadolivre:MLB123456", captured.offer.product_key)
         self.assertEqual("https://http2.mlstatic.com/monitor.jpg", captured.offer.image_url)
         self.assertEqual(0.0, captured.offer.shipping_price)
         self.assertEqual("items/MLB123456", api_get.call_args_list[0].args[0])
@@ -147,7 +147,9 @@ class CaptureTests(unittest.TestCase):
         )
 
         self.assertEqual(429.0, captured.offer.price)
-        self.assertEqual("mercadolivre:mlb4089347501", captured.offer.product_key)
+        self.assertEqual(
+            "mercadolivre:catalog:MLB50200257", captured.offer.product_key
+        )
         self.assertEqual("https://http2.mlstatic.com/aoc.jpg", captured.offer.image_url)
         self.assertEqual("products/MLB50200257/items", api_get.call_args_list[0].args[0])
         self.assertEqual("products/MLB50200257", api_get.call_args_list[1].args[0])

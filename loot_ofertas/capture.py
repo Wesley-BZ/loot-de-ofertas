@@ -100,7 +100,7 @@ def capture_mercado_livre_api(url: str) -> CapturedPage:
         title=title,
         affiliate_url=url,
         source_url=url,
-        product_key=f"mercadolivre:{item_id.casefold()}",
+        product_key=product_identity("mercadolivre", url, title),
         price=price,
         original_price=original_price if original_price and original_price > price else None,
         coupon=coupon,
