@@ -34,39 +34,57 @@ def capture_mercado_livre_api(url: str) -> CapturedPage:
     _validate_mercado_livre_host(url)
     decoded = urllib.parse.unquote(url)
     catalog_match = re.search(r"\b(MLBU\d+)\b", decoded, re.IGNORECASE)
-    if not catalog_match:
-        raise CaptureError("O link não contém o identificador de catálogo MLBU")
-    catalog_id = catalog_match.group(1).upper()
+    product_match = re.search(r"/p/(MLB\d+)\b", decoded, re.IGNORECASE)
     query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
     requested_item = str(query.get("wid", [""])[0]).upper()
     if not re.fullmatch(r"MLB\d+", requested_item):
         requested_item = next(
-            (value.upper() for value in re.findall(r"\bMLB\d+\b", decoded, re.IGNORECASE)), ""
+            (
+                value.upper().replace("-", "")
+                for value in re.findall(r"\bMLB-?\d+\b", decoded, re.IGNORECASE)
+            ),
+            "",
         )
+    if not catalog_match and not product_match and not requested_item:
+        raise CaptureError("O link não contém um identificador de produto MLB ou MLBU")
     try:
-        listing_data = api_get(f"products/{catalog_id}/items")
-        results = listing_data.get("results", []) if isinstance(listing_data, dict) else []
-        listing = next(
-            (row for row in results if str(row.get("item_id", "")).upper() == requested_item),
-            results[0] if results else None,
-        )
-        if not isinstance(listing, dict):
-            raise CaptureError("A API não retornou ofertas para esse produto")
-        product = api_get(f"user-products/{listing.get('user_product_id') or catalog_id}")
+        if catalog_match or product_match:
+            catalog_id = (catalog_match or product_match).group(1).upper()
+            listing_data = api_get(f"products/{catalog_id}/items")
+            results = listing_data.get("results", []) if isinstance(listing_data, dict) else []
+            listing = next(
+                (row for row in results if str(row.get("item_id", "")).upper() == requested_item),
+                results[0] if results else None,
+            )
+            if not isinstance(listing, dict):
+                raise CaptureError("A API não retornou ofertas para esse produto")
+            if catalog_match:
+                product = api_get(f"user-products/{listing.get('user_product_id') or catalog_id}")
+            else:
+                product = api_get(f"products/{catalog_id}")
+        else:
+            listing = api_get(f"items/{requested_item}")
+            if not isinstance(listing, dict):
+                raise CaptureError("A API não retornou os dados desse anúncio")
+            product = listing
         seller = api_get(f"users/{listing['seller_id']}")
         category = api_get(f"categories/{listing['category_id']}")
     except (MeliError, KeyError) as error:
         raise CaptureError(f"A API do Mercado Livre não conseguiu ler o produto: {error}") from error
 
-    title = str(product.get("name") or product.get("family_name") or "").strip()
+    title = str(
+        product.get("name") or product.get("family_name") or
+        product.get("title") or listing.get("title") or ""
+    ).strip()
     price = _first_price(listing.get("price"))
     if not title or price is None:
         raise CaptureError("A API retornou o produto sem título ou preço")
     original_price = _first_price(listing.get("original_price"))
-    pictures = product.get("pictures") or []
+    pictures = product.get("pictures") or listing.get("pictures") or []
     image_url = next(
         (str(picture.get("secure_url")) for picture in pictures if picture.get("secure_url")),
-        product.get("thumbnail"),
+        product.get("secure_thumbnail") or product.get("thumbnail") or
+        listing.get("secure_thumbnail") or listing.get("thumbnail"),
     )
     reputation = seller.get("seller_reputation") or {}
     rating_match = re.match(r"(\d+)", str(reputation.get("level_id") or ""))
