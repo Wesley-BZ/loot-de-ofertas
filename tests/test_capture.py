@@ -135,7 +135,7 @@ class CaptureTests(unittest.TestCase):
             }]},
             {
                 "name": "Monitor Gamer AOC",
-                "pictures": [{"secure_url": "https://http2.mlstatic.com/aoc.jpg"}],
+                "pictures": [{"url": "https://http2.mlstatic.com/aoc.jpg"}],
             },
             {"nickname": "AOC_OFICIAL", "seller_reputation": {"transactions": {"total": 100}}},
             {"name": "Monitores"},
@@ -148,6 +148,7 @@ class CaptureTests(unittest.TestCase):
 
         self.assertEqual(429.0, captured.offer.price)
         self.assertEqual("mercadolivre:mlb4089347501", captured.offer.product_key)
+        self.assertEqual("https://http2.mlstatic.com/aoc.jpg", captured.offer.image_url)
         self.assertEqual("products/MLB50200257/items", api_get.call_args_list[0].args[0])
         self.assertEqual("products/MLB50200257", api_get.call_args_list[1].args[0])
 

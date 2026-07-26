@@ -124,7 +124,12 @@ class WppConnectClient:
                 "isGroup": True,
                 "filename": f"oferta.{extension}",
                 "caption": caption,
-                "base64": base64.b64encode(data).decode("ascii"),
+                # WPPConnect's file sender expects a complete data URI so it
+                # can determine the media type before decoding the payload.
+                "base64": (
+                    f"data:{content_type};base64,"
+                    + base64.b64encode(data).decode("ascii")
+                ),
             },
         )
 

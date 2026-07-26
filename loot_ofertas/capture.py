@@ -82,7 +82,11 @@ def capture_mercado_livre_api(url: str) -> CapturedPage:
     original_price = _first_price(listing.get("original_price"))
     pictures = product.get("pictures") or listing.get("pictures") or []
     image_url = next(
-        (str(picture.get("secure_url")) for picture in pictures if picture.get("secure_url")),
+        (
+            str(picture.get("secure_url") or picture.get("url"))
+            for picture in pictures
+            if picture.get("secure_url") or picture.get("url")
+        ),
         product.get("secure_thumbnail") or product.get("thumbnail") or
         listing.get("secure_thumbnail") or listing.get("thumbnail"),
     )

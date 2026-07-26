@@ -82,7 +82,11 @@ def _offer_from_product(product_id: str, category_name: str) -> Offer:
         raise CaptureError("oferta sem item_id")
     pictures = product.get("pictures") or []
     image = next(
-        (str(row.get("secure_url")) for row in pictures if isinstance(row, dict) and row.get("secure_url")),
+        (
+            str(row.get("secure_url") or row.get("url"))
+            for row in pictures
+            if isinstance(row, dict) and (row.get("secure_url") or row.get("url"))
+        ),
         None,
     )
     shipping = listing.get("shipping") or {}

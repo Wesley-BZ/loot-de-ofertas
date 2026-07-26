@@ -20,6 +20,23 @@ class FakeResponse:
         return json.dumps(self.payload).encode()
 
 
+class FakeImageResponse:
+    def __init__(self, data=b"fake-jpeg"):
+        self.data = data
+        from email.message import Message
+        self.headers = Message()
+        self.headers["Content-Type"] = "image/jpeg"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def read(self, limit=-1):
+        return self.data
+
+
 def test_find_group_accepts_serialized_id():
     client = WppConnectClient("http://localhost:21465", "loot", "secret")
     with patch.object(
@@ -55,6 +72,29 @@ def test_send_offer_requests_native_link_preview():
     assert payload["url"] == "https://loja/item"
     assert payload["caption"].endswith("https://loja/item")
     assert result["status"] == "success"
+
+
+def test_send_offer_uploads_image_as_data_uri():
+    client = WppConnectClient("http://localhost:21465", "loot", "secret")
+    offer = Offer(
+        title="Mouse", affiliate_url="https://loja/item", price=99, store="Loja",
+        image_url="https://cdn.loja/mouse.jpg",
+    )
+    with patch.object(
+        client,
+        "_request",
+        return_value={"status": "success"},
+    ) as request_mock, patch(
+        "urllib.request.urlopen",
+        return_value=FakeImageResponse(),
+    ):
+        client.send_offer("123@g.us", offer, "upload")
+
+    endpoint = request_mock.call_args.args[1]
+    payload = request_mock.call_args.args[2]
+    assert endpoint == "send-image"
+    assert payload["base64"].startswith("data:image/jpeg;base64,")
+    assert payload["filename"] == "oferta.jpg"
 
 
 def test_save_qr_code(tmp_path):
