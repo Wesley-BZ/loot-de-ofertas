@@ -213,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             offer.id = repo.add(offer)
             assessment = _record_and_compare(repo, offer, use_google=args.google)
             complete_score = offer.score + max(0.0, assessment.score)
-            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "70")):
                 super_candidates.append((complete_score, offer))
             approved = assessment.label in {"imperdivel", "excelente", "promocao", "promocao_loja"}
             if offer.discount_percent < args.min_discount and not approved:
@@ -246,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
             offer.id = repo.add(offer)
             assessment = _record_and_compare(repo, offer, use_google=args.google)
             complete_score = offer.score + max(0.0, assessment.score)
-            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "70")):
                 super_candidates.append((complete_score, offer))
             approved = assessment.label in {"imperdivel", "excelente", "promocao"}
             if approved:
@@ -317,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
             offer.id = repo.add(offer)
             assessment = _record_and_compare(repo, offer, use_google=args.google)
             complete_score = offer.score + max(0.0, assessment.score)
-            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "70")):
                 super_candidates.append((complete_score, offer))
             saved += 1
         if super_candidates:
