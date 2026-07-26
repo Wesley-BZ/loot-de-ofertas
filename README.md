@@ -176,6 +176,14 @@ agregador. Na Magalu, o endereço direto é convertido para a loja Magazine Voc�
 configurada. As lojas listadas em `LOOT_PAUSED_STORES` são ignoradas sem remover
 o suporte futuro.
 
+Prioridade comercial atual:
+
+1. Magalu — afiliado ativo e bônus de score.
+2. Mercado Livre e Amazon — grandes marketplaces.
+3. KaBuM!, Pichau e TerabyteShop — especialistas em tecnologia.
+4. Fast Shop, Casas Bahia, Dell, Lenovo e Samsung — fontes complementares.
+5. Shopee e AliExpress — cadastradas, porém pausadas.
+
 
 ## Fila e controle de volume
 

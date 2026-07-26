@@ -316,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         if result.errors:
             print(f"Fontes com falha: {len(result.errors)}.")
+            for error in result.errors:
+                print(f"- {error}")
         return 0 if saved else 2
     if args.command == "market-add":
         offer = repo.get(args.offer_id)

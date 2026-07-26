@@ -72,6 +72,13 @@ STORE_HOSTS = {
     "aliexpress": ("aliexpress.com",),
 }
 
+# Commercial priority: our active affiliate first, then large marketplaces and
+# specialist technology stores, followed by manufacturer/department stores.
+STORE_PRIORITY = (
+    "magalu", "mercadolivre", "amazon", "kabum", "pichau", "terabyte",
+    "fastshop", "casasbahia", "dell", "lenovo", "samsung", "shopee", "aliexpress",
+)
+
 TRACKING_PARAMETERS = {
     "aff_fcid", "aff_fsk", "aff_platform", "aff_trace_key", "awc", "clickid",
     "gclid", "irclickid", "ref", "ref_", "social_share", "spm", "tag",
@@ -91,7 +98,15 @@ def discover_community_deals(limit: int = 60) -> CommunityDiscovery:
         for candidate in rows:
             key = f"{candidate.store}:{candidate.external_id or candidate.url}"
             candidates[key] = candidate
-    return CommunityDiscovery(list(candidates.values()), errors)
+    priority = {store: position for position, store in enumerate(STORE_PRIORITY)}
+    ordered = sorted(
+        candidates.values(),
+        key=lambda candidate: (
+            priority.get(candidate.store, len(priority)),
+            0 if candidate.source == "pelando" else 1,
+        ),
+    )
+    return CommunityDiscovery(ordered, errors)
 
 
 def fetch_pelando(limit: int = 60) -> list[DealCandidate]:
