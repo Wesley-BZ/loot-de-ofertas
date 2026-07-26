@@ -15,14 +15,22 @@ from .capture import (
 from .config import load_env
 from .coupons import coupon_for_offer
 from .database import OfferRepository
+from .deal_sources import (
+    DealCandidate,
+    clean_product_url,
+    discover_community_deals,
+    trusted_product_url,
+)
 from .formatting import format_offer
+from .generic_capture import capture_generic_product
 from .importers import import_csv
 from .models import Offer
 from .marketing import PHRASES, category_for, headline_for
 from .market import MarketQuote, MarketRepository, assess_deal, google_shopping_quotes
 from .magalu import (
     capture_magalu, capture_magalu_browser, discover_magalu_browser,
-    discover_magalu_categories, magalu_category_urls, relevant_magalu_offer,
+    discover_magalu_categories, magalu_affiliate_url, magalu_category_urls,
+    relevant_magalu_offer,
 )
 from .meli import MeliError, api_get, authorization_url, exchange_callback
 from .meli_discovery import discover_meli_highlights
@@ -71,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
     meli_discovery.add_argument("--limit", type=int, default=30)
     meli_discovery.add_argument("--min-discount", type=float, default=10)
     meli_discovery.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
+    community = sub.add_parser(
+        "discover-deals", help="Descobre promoções multiloja em fontes comunitárias"
+    )
+    community.add_argument("--limit", type=int, default=60)
+    community.add_argument("--include-all", action="store_true", help="Inclui produtos fora do perfil gamer/tech")
+    community.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
     market_add = sub.add_parser("market-add", help="Adiciona preço concorrente ao portfólio")
     market_add.add_argument("offer_id", type=int, help="Oferta usada como produto de referência")
     market_add.add_argument("--store", required=True)
@@ -251,6 +265,58 @@ def main(argv: list[str] | None = None) -> int:
         if result.errors:
             print(f"Consultas com falha: {len(result.errors)}.")
         return 0 if result.offers else 2
+    if args.command == "discover-deals":
+        result = discover_community_deals(limit=args.limit)
+        saved = 0
+        irrelevant = 0
+        unresolved = 0
+        paused = 0
+        failed = 0
+        super_candidates: list[tuple[float, Offer]] = []
+        paused_stores = {
+            value.strip().casefold()
+            for value in os.getenv("LOOT_PAUSED_STORES", "shopee,aliexpress").split(",")
+            if value.strip()
+        }
+        for candidate in result.candidates:
+            if candidate.store in paused_stores:
+                paused += 1
+                continue
+            preview = Offer(
+                title=candidate.title, affiliate_url=candidate.url,
+                source_url=candidate.url, price=candidate.price,
+                original_price=candidate.original_price, coupon=candidate.coupon,
+                store=candidate.store,
+            )
+            if not args.include_all and category_for(preview) == "generic":
+                irrelevant += 1
+                continue
+            if not trusted_product_url(candidate.url, candidate.store):
+                unresolved += 1
+                continue
+            try:
+                offer = _offer_from_community_candidate(candidate)
+            except CaptureError as error:
+                failed += 1
+                print(f"{candidate.source}: {candidate.title[:70]} — {error}")
+                continue
+            offer.category = category_for(offer)
+            offer.id = repo.add(offer)
+            assessment = _record_and_compare(repo, offer, use_google=args.google)
+            complete_score = offer.score + max(0.0, assessment.score)
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "85")):
+                super_candidates.append((complete_score, offer))
+            saved += 1
+        if super_candidates:
+            _publish_super_offer(repo, max(super_candidates, key=lambda item: item[0])[1])
+        print(
+            f"Fontes comunitárias: {len(result.candidates)} candidato(s), {saved} salvo(s), "
+            f"{irrelevant} fora do perfil, {paused} de loja pausada, "
+            f"{unresolved} sem link direto e {failed} com falha."
+        )
+        if result.errors:
+            print(f"Fontes com falha: {len(result.errors)}.")
+        return 0 if saved else 2
     if args.command == "market-add":
         offer = repo.get(args.offer_id)
         if not offer:
@@ -537,6 +603,44 @@ def _record_and_compare(repo: OfferRepository, offer: Offer, use_google: bool = 
     for reason in assessment.reasons:
         print(f"- {reason}")
     return assessment
+
+
+def _offer_from_community_candidate(candidate: DealCandidate) -> Offer:
+    """Confirm a community deal at the store and apply our own affiliate rules."""
+    url = clean_product_url(candidate.url)
+    if candidate.store == "magalu":
+        try:
+            offer = capture_magalu(url).offer
+        except CaptureError:
+            offer = Offer(
+                title=candidate.title, affiliate_url=magalu_affiliate_url(url),
+                source_url=url, price=candidate.price,
+                original_price=candidate.original_price, coupon=candidate.coupon,
+                store="magalu",
+            )
+    elif candidate.store == "mercadolivre":
+        try:
+            offer = capture_mercado_livre_api(url).offer
+        except CaptureError:
+            offer = capture_mercado_livre(url).offer
+    else:
+        try:
+            offer = capture_generic_product(url)
+        except CaptureError:
+            offer = Offer(
+                title=candidate.title, affiliate_url=url, source_url=url,
+                price=candidate.price, original_price=candidate.original_price,
+                coupon=candidate.coupon, store=candidate.store,
+            )
+    # Direct store data wins for live price; the community feed fills coupon
+    # and old-price fields that product pages frequently omit.
+    offer.store = candidate.store
+    offer.source_url = url
+    offer.affiliate_url = magalu_affiliate_url(url) if candidate.store == "magalu" else url
+    offer.coupon = offer.coupon or candidate.coupon
+    if not offer.original_price and candidate.original_price and candidate.original_price > offer.price:
+        offer.original_price = candidate.original_price
+    return offer
 
 
 def _refresh_offer(repo: OfferRepository, offer: Offer) -> Offer:

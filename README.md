@@ -16,14 +16,19 @@ Abra `http://127.0.0.1:8000/`. No Windows, a tarefa
 
 ## O que já funciona
 
-- Cadastro manual ou importação CSV de ofertas Magalu/Shopee.
+- Cadastro manual ou importação CSV de ofertas de qualquer loja.
+- Descoberta multiloja em feeds públicos de promoções, com confirmação na loja.
 - Ranking automático por relevância gamer, desconto, cupom e comissão.
 - Identidade estável de produto e histórico de preços.
 - Fila com intervalo mínimo, limites diários e bloqueio de repetição.
 - Publicação em grupo ou canal do Telegram pela Bot API oficial.
 - Fila de mensagens e link de compartilhamento para WhatsApp.
 
-O projeto não raspa painéis protegidos e não inventa links de afiliado. O link deve ser gerado no painel oficial da loja. Pelando não está integrado porque a plataforma proíbe autopromoção e pode substituir links enviados pelos links próprios dela.
+O projeto não raspa painéis protegidos e não inventa links de afiliado. Pelando
+e Promobit são usados somente como sinais públicos de descoberta; o bot não
+publica nessas comunidades nem reutiliza links afiliados delas. Antes de entrar
+na fila, o endereço precisa apontar diretamente para uma loja conhecida. A
+conversão afiliada é aplicada apenas quando temos nossa própria integração.
 
 ## Começar
 
@@ -155,13 +160,29 @@ Os itens são lidos pela API oficial, deduplicados e enviados ao mesmo históric
 comparador e filtro de publicação da Magalu. O monitor do Windows executa as duas
 descobertas automaticamente.
 
+## Descoberta multiloja
+
+O coletor comunitário consulta Pelando e Promobit para encontrar candidatos de
+Amazon, Magalu, Mercado Livre, KaBuM!, Pichau, TerabyteShop e outras lojas
+confiáveis:
+
+```powershell
+python -m loot_ofertas.cli discover-deals --limit 60
+```
+
+Produtos fora do perfil gamer/tecnologia são descartados antes de abrir a loja.
+Ofertas sem link direto ficam pendentes e nunca são publicadas com o link do
+agregador. Na Magalu, o endereço direto é convertido para a loja Magazine Você
+configurada. As lojas listadas em `LOOT_PAUSED_STORES` são ignoradas sem remover
+o suporte futuro.
+
 
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução e sempre escolhe o
 maior score disponível. A validação de mercado aumenta o score, mas não bloqueia
 o envio. Por padrão, a fila respeita 15 minutos entre mensagens, funciona das
-09:00 às 22:00 e permite até 60 mensagens por dia e por categoria. Um produto fica bloqueado por 7 dias,
+09:00 às 23:00 e permite até 60 mensagens por dia e por categoria. Um produto fica bloqueado por 7 dias,
 exceto quando o preço cai pelo menos 10% em relação à última publicação.
 
 Confira o estado sem publicar:
@@ -182,6 +203,7 @@ LOOT_END_HOUR=23
 LOOT_AFFILIATE_STORES=magalu,shopee,aliexpress
 LOOT_AFFILIATE_BONUS=12
 LOOT_SUPER_SCORE=85
+LOOT_PAUSED_STORES=shopee,aliexpress
 LOOT_REPEAT_COOLDOWN_DAYS=7
 LOOT_REPEAT_PRICE_DROP_PERCENT=10
 LOOT_TIMEZONE=America/Sao_Paulo
