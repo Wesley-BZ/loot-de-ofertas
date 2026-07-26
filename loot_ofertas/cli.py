@@ -470,7 +470,9 @@ def main(argv: list[str] | None = None) -> int:
             rankings = MarketRepository(repo.path).latest_rankings(
                 [offer.id for offer in offers if offer.id is not None]
             )
-            offers = rank_offers_for_publication(offers, rankings)[:1]
+            # Keep fallback candidates: a store can block the live price check
+            # for the first-ranked item immediately before publication.
+            offers = rank_offers_for_publication(offers, rankings)[:10]
     if not offers:
         print("Nenhuma oferta atingiu o score mínimo.")
         return 0
@@ -523,6 +525,8 @@ def main(argv: list[str] | None = None) -> int:
             repo.record_headline(offer, phrase_category)
             repo.mark_published(offer.id, args.channel, phrase_category)
             print(f"Oferta {offer.id} publicada no Telegram.")
+            if sends_immediately:
+                return 0
         elif args.channel == "whatsapp":
             path = whatsapp_outbox(offer)
             print(f"Mensagem salva em {path}")
@@ -532,6 +536,8 @@ def main(argv: list[str] | None = None) -> int:
             repo.record_headline(offer, phrase_category)
             repo.mark_published(offer.id, args.channel, phrase_category)
             print(f"Oferta {offer.id} publicada no grupo {group_name}.")
+            if sends_immediately:
+                return 0
         else:
             try:
                 wpp_client.send_offer(
@@ -543,6 +549,7 @@ def main(argv: list[str] | None = None) -> int:
             repo.record_headline(offer, phrase_category)
             repo.mark_published(offer.id, args.channel, phrase_category)
             print(f"Oferta {offer.id} publicada no grupo pelo WPPConnect.")
+            return 0
     keep_open = os.getenv("WHATSAPP_KEEP_OPEN", "false").casefold() in {"1", "true", "yes", "sim"}
     if whatsapp_driver is not None and not keep_open:
         whatsapp_driver.quit()

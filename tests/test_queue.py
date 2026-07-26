@@ -74,6 +74,14 @@ class QueueTests(unittest.TestCase):
         self.assertFalse(decision.allowed)
         self.assertGreaterEqual(decision.wait_seconds, 14 * 60)
 
+    def test_publication_gate_allows_small_scheduler_drift(self):
+        offer_id = self.add_mouse()
+        self.repo.mark_published(offer_id, "wppconnect", "mouse_gamer")
+        with self.repo.connection() as connection:
+            stamp = (self.now - timedelta(minutes=19, seconds=35)).astimezone(timezone.utc).isoformat()
+            connection.execute("UPDATE publication_history SET published_at=?", (stamp,))
+        self.assertTrue(self.repo.publication_decision("wppconnect", self.policy, self.now).allowed)
+
     def test_product_only_repeats_early_after_ten_percent_drop(self):
         offer_id = self.add_mouse(100)
         self.repo.mark_published(offer_id, "wppconnect", "mouse_gamer")

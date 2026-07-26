@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectDirectory
 New-Item -ItemType Directory -Path "logs" -Force | Out-Null
@@ -14,3 +14,4 @@ python -m loot_ofertas.cli discover-deals --limit 60 2>&1 |
     Out-File -LiteralPath "logs\monitor.log" -Append -Encoding utf8
 python -m loot_ofertas.cli monitor --limit 10 2>&1 |
     Out-File -LiteralPath "logs\monitor.log" -Append -Encoding utf8
+exit 0

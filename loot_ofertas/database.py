@@ -366,7 +366,13 @@ class OfferRepository:
             return PublicationDecision(False, "limite diário atingido")
         if timestamps:
             elapsed = local_now.astimezone(timezone.utc) - timestamps[0]
-            interval = timedelta(minutes=policy.min_interval_minutes)
+            # The Windows trigger fires on the minute, while an actual send is
+            # recorded a few seconds later. A small grace prevents a nominal
+            # 15-minute schedule from being delayed to the following cycle.
+            interval = max(
+                timedelta(0),
+                timedelta(minutes=policy.min_interval_minutes) - timedelta(seconds=30),
+            )
             if elapsed < interval:
                 wait = max(1, int((interval - elapsed).total_seconds()))
                 return PublicationDecision(False, "intervalo mínimo ainda não terminou", wait)
