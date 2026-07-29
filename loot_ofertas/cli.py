@@ -6,7 +6,7 @@ import sys
 import urllib.parse
 
 from .capture import (
-    CaptureError,
+    CaptureError, CapturedPage,
     capture_mercado_livre,
     capture_mercado_livre_api,
     capture_mercado_livre_browser,
@@ -36,6 +36,10 @@ from .magalu import (
 from .meli import MeliError, api_get, authorization_url, exchange_callback
 from .meli_discovery import discover_meli_highlights
 from .scheduling import PublicationPolicy
+from .shopee import (
+    ShopeeAffiliateClient, ShopeeAffiliateError, capture_shopee_product,
+    discover_shopee_offers, shopee_configured,
+)
 from .publishers import (
     telegram_send,
     whatsapp_outbox,
@@ -64,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
         "callback", nargs="?", help="URL completa retornada; por padrão lê MELI_CALLBACK_URL do .env"
     )
     sub.add_parser("meli-test", help="Testa a API autenticada do Mercado Livre")
+    sub.add_parser("shopee-test", help="Testa as credenciais da API de Afiliados Shopee")
     compare = sub.add_parser("compare", help="Compara uma oferta com o mercado atual")
     compare.add_argument("offer_id", type=int)
     compare.add_argument("--google", action="store_true", help="Atualiza pelo Google Shopping via SerpApi")
@@ -86,6 +91,11 @@ def build_parser() -> argparse.ArgumentParser:
     community.add_argument("--limit", type=int, default=60)
     community.add_argument("--include-all", action="store_true", help="Inclui produtos fora do perfil gamer/tech")
     community.add_argument("--google", action="store_true", help="Compara candidatos via Google Shopping")
+    shopee_discovery = sub.add_parser(
+        "discover-shopee", help="Descobre produtos gamers pela API oficial de Afiliados Shopee"
+    )
+    shopee_discovery.add_argument("--limit", type=int, default=30)
+    shopee_discovery.add_argument("--google", action="store_true")
     market_add = sub.add_parser("market-add", help="Adiciona preço concorrente ao portfólio")
     market_add.add_argument("offer_id", type=int, help="Oferta usada como produto de referência")
     market_add.add_argument("--store", required=True)
@@ -168,6 +178,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"API conectada: usuário {user.get('nickname') or user.get('id')}.")
             return 0
         except MeliError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if args.command == "shopee-test":
+        try:
+            rows = ShopeeAffiliateClient().products(keyword="mouse gamer", limit=1)
+            print(f"API Shopee conectada: {len(rows)} produto(s) recebido(s) no teste.")
+            return 0
+        except ShopeeAffiliateError as exc:
             print(str(exc), file=sys.stderr)
             return 2
     if args.command == "compare":
@@ -279,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
             for value in os.getenv("LOOT_PAUSED_STORES", "shopee,aliexpress").split(",")
             if value.strip()
         }
+        if shopee_configured():
+            paused_stores.discard("shopee")
         for candidate in result.candidates:
             if candidate.store in paused_stores:
                 paused += 1
@@ -331,6 +351,35 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Fontes com falha: {len(result.errors)}.")
             for error in result.errors:
                 print(f"- {error}")
+        return 0 if saved else 2
+    if args.command == "discover-shopee":
+        try:
+            result = discover_shopee_offers(limit=args.limit)
+        except ShopeeAffiliateError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        saved = 0
+        irrelevant = 0
+        super_candidates: list[tuple[float, Offer]] = []
+        for offer in result.offers:
+            offer.category = category_for(offer)
+            if offer.category == "generic":
+                irrelevant += 1
+                continue
+            offer.id = repo.add(offer)
+            assessment = _record_and_compare(repo, offer, use_google=args.google)
+            complete_score = offer.score + max(0.0, assessment.score)
+            if complete_score >= float(os.getenv("LOOT_SUPER_SCORE", "70")):
+                super_candidates.append((complete_score, offer))
+            saved += 1
+        if super_candidates:
+            _publish_super_offer(repo, max(super_candidates, key=lambda item: item[0])[1])
+        print(
+            f"Shopee API: {len(result.offers)} produto(s), {saved} salvo(s), "
+            f"{irrelevant} fora do perfil e {len(result.errors)} consulta(s) com falha."
+        )
+        for error in result.errors:
+            print(f"- {error}")
         return 0 if saved else 2
     if args.command == "market-add":
         offer = repo.get(args.offer_id)
@@ -395,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
                 except CaptureError as browser_error:
                     print(f"Captura recusada: {browser_error}", file=sys.stderr)
                     return 2
-        else:
+        elif "mercadolivre.com" in host or "mercadolibre.com" in host:
             try:
                 captured = capture_mercado_livre_api(args.url)
                 print("Produto consultado pela API oficial do Mercado Livre.")
@@ -412,6 +461,19 @@ def main(argv: list[str] | None = None) -> int:
                     except CaptureError as browser_error:
                         print(f"Captura recusada: {browser_error}", file=sys.stderr)
                         return 2
+        elif "shopee.com.br" in host or host.endswith("shp.ee"):
+            try:
+                captured = CapturedPage(capture_shopee_product(args.url), args.url)
+                print("Produto consultado pela API oficial de Afiliados Shopee.")
+            except CaptureError as error:
+                print(f"Captura Shopee recusada: {error}", file=sys.stderr)
+                return 2
+        else:
+            try:
+                captured = CapturedPage(capture_generic_product(args.url), args.url)
+            except CaptureError as error:
+                print(f"Captura recusada: {error}", file=sys.stderr)
+                return 2
         offer = captured.offer
         offer.category = category_for(offer)
         _apply_coupon(offer)
@@ -660,6 +722,8 @@ def _offer_from_community_candidate(candidate: DealCandidate) -> Offer:
             offer = capture_mercado_livre_api(url).offer
         except CaptureError:
             offer = capture_mercado_livre(url).offer
+    elif candidate.store == "shopee" and shopee_configured():
+        offer = capture_shopee_product(url)
     else:
         try:
             offer = capture_generic_product(url)
@@ -675,7 +739,10 @@ def _offer_from_community_candidate(candidate: DealCandidate) -> Offer:
     offer.source_url = url
     offer.discovery_source = candidate.source
     offer.community_score = max(offer.community_score, candidate.community_score)
-    offer.affiliate_url = magalu_affiliate_url(url) if candidate.store == "magalu" else url
+    if candidate.store == "magalu":
+        offer.affiliate_url = magalu_affiliate_url(url)
+    elif candidate.store != "shopee":
+        offer.affiliate_url = url
     offer.coupon = offer.coupon or candidate.coupon
     if not offer.original_price and candidate.original_price and candidate.original_price > offer.price:
         offer.original_price = candidate.original_price
@@ -700,6 +767,8 @@ def _refresh_offer(repo: OfferRepository, offer: Offer, strict: bool = False) ->
                 refreshed = capture_magalu_browser(
                     url, session_dir=os.getenv("MAGALU_SESSION_DIR", ".magalu-session")
                 ).offer
+        elif "shopee.com.br" in host or host.endswith("shp.ee"):
+            refreshed = capture_shopee_product(url)
         else:
             refreshed = capture_generic_product(url)
     except CaptureError as exc:

@@ -23,6 +23,7 @@ from .magalu import capture_magalu
 from .marketing import category_for, headline_for
 from .models import Offer
 from .scheduling import PublicationPolicy
+from .shopee import capture_shopee_product, shopee_configured
 from .wppconnect import WppConnectClient, WppConnectError
 
 
@@ -172,6 +173,8 @@ def _capture_url(url: str) -> Offer:
             return capture_mercado_livre_api(url).offer
         except CaptureError:
             return capture_mercado_livre(url).offer
+    if "shopee.com.br" in host or host.endswith("shp.ee"):
+        return capture_shopee_product(url)
     return capture_generic_product(url)
 
 
@@ -243,6 +246,7 @@ def _integration_status(wpp: dict[str, Any], scheduler: dict[str, Any]) -> list[
         {"name": "Grupo do WhatsApp", "ok": bool(os.getenv("WPP_GROUP_ID", "").strip()), "detail": "configurado" if os.getenv("WPP_GROUP_ID", "").strip() else "ausente"},
         {"name": "Mercado Livre API", "ok": token_file.exists() and bool(os.getenv("MELI_CLIENT_ID", "").strip()), "detail": "autorizada" if token_file.exists() else "token ausente"},
         {"name": "Magazine Você", "ok": bool(os.getenv("MAGALU_STORE_URL", "").strip() and os.getenv("MAGALU_PROMOTER_ID", "").strip()), "detail": "loja e divulgador configurados"},
+        {"name": "Shopee Afiliados API", "ok": shopee_configured(), "detail": "App ID e Secret configurados" if shopee_configured() else "preencha credenciais-shopee.env"},
         {"name": "Google Shopping", "ok": bool(os.getenv("SERPAPI_API_KEY", "").strip()), "detail": "SerpApi configurada" if os.getenv("SERPAPI_API_KEY", "").strip() else "opcional · chave ausente"},
     ]
 

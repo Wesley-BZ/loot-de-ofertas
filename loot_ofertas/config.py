@@ -15,3 +15,5 @@ def load_env(path: str | Path = ".env") -> None:
             continue
         key, value = line.split("=", 1)
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+    if Path(path) == Path(".env"):
+        load_env("credenciais-shopee.env")

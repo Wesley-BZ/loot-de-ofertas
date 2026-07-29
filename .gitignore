@@ -1,4 +1,5 @@
 .env
+credenciais-shopee.env
 *.db
 *.sqlite3
 __pycache__/

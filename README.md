@@ -185,6 +185,27 @@ Prioridade comercial atual:
 5. Shopee e AliExpress — cadastradas, porém pausadas.
 
 
+## Shopee Afiliados Open API
+
+Preencha somente `SHOPEE_APP_ID` e `SHOPEE_SECRET` no arquivo local
+`credenciais-shopee.env`. Esse arquivo é ignorado pelo Git.
+
+Teste a autenticação:
+
+```powershell
+python -m loot_ofertas.cli shopee-test
+```
+
+Faça uma coleta manual:
+
+```powershell
+python -m loot_ofertas.cli discover-shopee --limit 30
+```
+
+O monitor executa essa coleta automaticamente. A API fornece preço, imagem,
+vendas, avaliação, comissão e o link com tracking do afiliado. Links completos
+da Shopee inseridos no painel também são consultados e convertidos pela API.
+
 ## Fila e controle de volume
 
 O envio automático publica no máximo uma oferta por execução e sempre escolhe o
