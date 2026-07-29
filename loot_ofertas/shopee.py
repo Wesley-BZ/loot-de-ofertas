@@ -111,9 +111,11 @@ class ShopeeAffiliateClient:
             filters.append("keyword: $keyword")
             variables["keyword"] = keyword
         if item_id is not None:
-            declarations.append("$itemId: Int!")
+            declarations.append("$itemId: Int64!")
             filters.append("itemId: $itemId")
-            variables["itemId"] = item_id
+            # A Shopee expõe itemId como Int64, cujo valor JSON precisa ser
+            # enviado como texto para não perder precisão.
+            variables["itemId"] = str(item_id)
         query = f"""
         query Products({', '.join(declarations)}) {{
           productOfferV2({', '.join(filters)}) {{

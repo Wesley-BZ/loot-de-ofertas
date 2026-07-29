@@ -62,3 +62,19 @@ def test_offer_node_uses_affiliate_link_and_commercial_signals():
 def test_extracts_item_id_from_brazilian_product_links():
     assert shopee_item_id("https://shopee.com.br/mouse-gamer-i.123456.987654") == 987654
     assert shopee_item_id("https://shopee.com.br/product/123456/987654") == 987654
+
+
+def test_products_sends_item_id_as_int64_string():
+    client = ShopeeAffiliateClient("123", "secret")
+    captured = {}
+
+    def fake_request(query, variables=None, timeout=30):
+        captured["query"] = query
+        captured["variables"] = variables
+        return {"productOfferV2": {"nodes": []}}
+
+    with patch.object(client, "request", side_effect=fake_request):
+        client.products(item_id=9876543210123, limit=1)
+
+    assert "$itemId: Int64!" in captured["query"]
+    assert captured["variables"]["itemId"] == "9876543210123"
