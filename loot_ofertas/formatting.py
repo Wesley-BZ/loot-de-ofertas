@@ -35,8 +35,6 @@ def format_offer(offer: Offer) -> str:
         if condition:
             lines.append(condition)
     lines.extend(["", f"Loja: {store_name(offer.store)}", compact_offer_url(offer)])
-    if offer.source_url and offer.source_url != offer.affiliate_url:
-        lines.append("Link de afiliado")
     return "\n".join(lines)
 
 

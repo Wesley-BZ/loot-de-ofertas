@@ -48,6 +48,7 @@ class MarketingTests(unittest.TestCase):
             coupon="BEMVINDO20 (1ª compra acima de R$ 80)",
         )
         message = format_offer(offer)
+        self.assertNotIn("Link de afiliado", message)
         self.assertIn("Use o Cupom: *BEMVINDO20*", message)
         self.assertIn("Loja: Magalu", message)
         self.assertNotIn("OFERTA GAMER", message)
